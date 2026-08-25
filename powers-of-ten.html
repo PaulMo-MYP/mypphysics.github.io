@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Powers of Ten — Scale of the Universe</title>
+<meta name="description" content="An interactive logarithmic zoom from the Planck length to the observable universe, for high-school and IB physics.">
+<style>
+:root{
+  --ink:#06070d;
+  --panel:rgba(14,16,24,.82);
+  --rule:#1d2130;
+  --rule-2:#2b3145;
+  --text:#e8eaf2;
+  --muted:#828a9e;
+  --amber:#f2a33c;
+  --cyan:#64d8d0;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--ink);color:var(--text);font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;overflow:hidden;
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;height:100dvh;
+}
+
+/* ---------- masthead ---------- */
+header{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:10px 18px 9px;border-bottom:1px solid var(--rule);
+  background:linear-gradient(180deg,rgba(255,255,255,.03),transparent);
+}
+h1{
+  margin:0;font-family:var(--serif);font-weight:400;font-size:clamp(15px,2.1vw,21px);
+  letter-spacing:.01em;
+}
+h1 em{font-style:italic;color:var(--amber)}
+.eyebrow{
+  font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--muted);
+}
+header .spacer{flex:1}
+.hbtn{
+  font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);background:none;border:1px solid var(--rule-2);border-radius:2px;
+  padding:5px 9px;cursor:pointer;
+}
+.hbtn:hover{color:var(--text);border-color:var(--amber)}
+
+/* ---------- stage ---------- */
+#stage{position:relative;min-height:0;overflow:hidden}
+canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+
+/* readout: the field-of-view rule, top-left */
+#fov{
+  position:absolute;top:16px;left:18px;font-family:var(--mono);pointer-events:none;
+  text-shadow:0 1px 12px rgba(0,0,0,.9);
+}
+#fov .k{font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+#fov .v{font-size:clamp(20px,3.4vw,30px);color:var(--amber);letter-spacing:-.01em;margin-top:2px}
+#fov .v sup{font-size:.55em;top:-.6em;position:relative}
+#fov .w{font-size:12px;color:var(--muted);margin-top:1px}
+
+/* caption card, bottom-left */
+#card{
+  position:absolute;left:18px;bottom:16px;max-width:min(430px,calc(100% - 36px));
+  background:var(--panel);border:1px solid var(--rule);border-left:2px solid var(--amber);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+  padding:12px 15px 13px;border-radius:2px;
+}
+#card .idx{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--cyan);text-transform:uppercase}
+#card h2{margin:3px 0 2px;font-family:var(--serif);font-weight:400;font-size:clamp(19px,2.7vw,26px);line-height:1.1}
+#card .sz{font-family:var(--mono);font-size:12px;color:var(--amber);margin-bottom:7px}
+#card p{margin:0;font-size:13.5px;line-height:1.5;color:#c3c9d8}
+
+/* ---------- controls ---------- */
+footer{border-top:1px solid var(--rule);background:linear-gradient(0deg,rgba(255,255,255,.02),transparent);padding:10px 18px 14px}
+.rowA{display:flex;align-items:center;gap:10px}
+.btn{
+  font-family:var(--mono);font-size:12px;color:var(--text);background:#12141d;
+  border:1px solid var(--rule-2);border-radius:2px;padding:7px 11px;cursor:pointer;min-width:38px;
+}
+.btn:hover{border-color:var(--amber);color:var(--amber)}
+.btn:active{transform:translateY(1px)}
+#play{min-width:92px;letter-spacing:.08em}
+
+/* the rail */
+.rail{position:relative;flex:1;padding:0 2px}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:26px;background:none;margin:0;display:block;cursor:ew-resize;
+}
+input[type=range]::-webkit-slider-runnable-track{height:26px;background:none}
+input[type=range]::-moz-range-track{height:26px;background:none}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:11px;height:26px;border-radius:1px;
+  background:linear-gradient(180deg,#ffd18a,var(--amber));border:none;
+  box-shadow:0 0 12px rgba(242,163,60,.55);
+}
+input[type=range]::-moz-range-thumb{
+  width:11px;height:26px;border-radius:1px;border:none;
+  background:linear-gradient(180deg,#ffd18a,var(--amber));box-shadow:0 0 12px rgba(242,163,60,.55);
+}
+input[type=range]:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
+#ticks{position:relative;height:24px;margin:0 5px;pointer-events:none}
+#ticks i{position:absolute;top:0;width:1px;height:6px;background:var(--rule-2);transform:translateX(-.5px)}
+#ticks i.maj{height:10px;background:#4a5268}
+#ticks i.hit{background:var(--cyan);height:10px}
+#ticks b{
+  position:absolute;top:11px;transform:translateX(-50%);font-family:var(--mono);
+  font-size:9.5px;color:#5d6478;font-weight:400;white-space:nowrap;
+}
+/* milestone chips */
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.chip{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;color:var(--muted);
+  background:none;border:1px solid var(--rule);border-radius:999px;padding:4px 9px;cursor:pointer;
+}
+.chip:hover{color:var(--text);border-color:var(--rule-2)}
+.chip[aria-current=true]{color:var(--ink);background:var(--amber);border-color:var(--amber)}
+
+/* ---------- notes dialog ---------- */
+#notes{
+  position:absolute;inset:0;display:none;place-items:center;background:rgba(4,5,10,.72);
+  backdrop-filter:blur(3px);z-index:20;padding:20px;
+}
+#notes.on{display:grid}
+#notes .box{
+  max-width:640px;max-height:76vh;overflow:auto;background:#0d0f17;border:1px solid var(--rule-2);
+  border-radius:3px;padding:22px 24px;
+}
+#notes h3{margin:0 0 12px;font-family:var(--serif);font-weight:400;font-size:20px}
+#notes h4{margin:16px 0 5px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+#notes p,#notes li{font-size:13.5px;line-height:1.6;color:#c3c9d8;margin:0 0 6px}
+#notes ul{margin:0;padding-left:18px}
+#notes kbd{font-family:var(--mono);font-size:11px;background:#171a25;border:1px solid var(--rule-2);border-radius:3px;padding:1px 5px}
+
+@media (max-width:720px){
+  #card{left:10px;right:10px;bottom:10px;max-width:none;padding:10px 12px}
+  #card p{font-size:12.5px}
+  #fov{top:10px;left:12px}
+  footer{padding:8px 10px 12px}
+  .chips{max-height:29px;overflow:hidden}
+  #ticks b{font-size:9px}
+}
+@media (prefers-reduced-motion:reduce){#play{display:none}}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="eyebrow">Powers of ten</span>
+  <h1>From the Planck length to the <em>observable universe</em></h1>
+  <span class="spacer"></span>
+  <button class="hbtn" id="notesBtn" aria-haspopup="dialog">Teaching notes</button>
+</header>
+
+<main id="stage">
+  <canvas id="c"></canvas>
+  <div id="fov">
+    <div class="k">Field of view</div>
+    <div class="v" id="fovV">10<sup>0</sup> m</div>
+    <div class="w" id="fovW">1 metre</div>
+  </div>
+  <figcaption id="card">
+    <div class="idx" id="cIdx">10⁰ m</div>
+    <h2 id="cName">Human</h2>
+    <div class="sz" id="cSize">1.7 m</div>
+    <p id="cNote"></p>
+  </figcaption>
+
+  <div id="notes" role="dialog" aria-modal="true" aria-label="Teaching notes">
+    <div class="box">
+      <h3>Teaching notes</h3>
+      <p>The rail is linear in the <em>exponent</em>, so equal distances along it are equal factors of ten — 61 decades in all. Each screen shows one decade of field of view; every step right divides the apparent size of everything on screen by ten.</p>
+      <h4>Controls</h4>
+      <ul>
+        <li><kbd>←</kbd> <kbd>→</kbd> move by half a decade, <kbd>Shift</kbd> + arrow snaps to the next labelled scale.</li>
+        <li><kbd>Space</kbd> starts and stops the automatic zoom.</li>
+        <li>Drag the rail, or press a chip to jump.</li>
+      </ul>
+      <h4>Where the numbers come from</h4>
+      <ul>
+        <li>Planck length 1.616 × 10⁻³⁵ m; proton charge radius 0.84 fm; nuclear radius R = 1.20 A<sup>1/3</sup> fm.</li>
+        <li>Bohr radius 5.29 × 10⁻¹¹ m; DNA helix 2.0 nm wide, 3.4 nm per turn.</li>
+        <li>Earth equatorial diameter 1.276 × 10⁷ m; Sun 1.392 × 10⁹ m; 1 AU = 1.496 × 10¹¹ m; 1 ly = 9.461 × 10¹⁵ m.</li>
+        <li>Observable universe: 93 Gly across = 8.8 × 10²⁶ m.</li>
+      </ul>
+      <h4>Honest limits</h4>
+      <p>The pictures are schematic, not to scale within a frame — an atom's nucleus really is far too small to draw at 10⁻¹⁰ m, which is the point made at 10⁻¹² m. Quarks and electrons have no measured size; the drawing at 10⁻¹⁹ m shows the experimental upper bound, not a radius. Between the Planck length and 10⁻¹⁹ m nothing has been observed directly at all.</p>
+      <h4>Questions worth asking a class</h4>
+      <ul>
+        <li>How many decades separate you from a proton? From the observable universe? Which is the bigger jump?</li>
+        <li>If a hydrogen atom were scaled to 100 m across, how big is the nucleus?</li>
+        <li>Why does the sequence stop at 10²⁶ m and not go further?</li>
+      </ul>
+      <p style="margin-top:14px"><button class="btn" id="notesClose">Close</button></p>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="rowA">
+    <button class="btn" id="prev" title="Previous labelled scale (Shift + ←)">◀</button>
+    <button class="btn" id="play" title="Play (Space)">▶ Zoom out</button>
+    <button class="btn" id="next" title="Next labelled scale (Shift + →)">▶</button>
+    <div class="rail">
+      <input id="slider" type="range" min="-35" max="26" step="0.02" value="0"
+             aria-label="Scale exponent, powers of ten in metres">
+      <div id="ticks"></div>
+    </div>
+  </div>
+  <div class="chips" id="chips"></div>
+</footer>
+
+<script>
+(function(){
+"use strict";
+const TAU = Math.PI*2, E_MIN = -35, E_MAX = 26;
+const c = document.getElementById('c'), ctx = c.getContext('2d');
+
+/* ---------- tiny drawing helpers ---------- */
+const rnd = i => { const x = Math.sin(i*12.9898 + 78.233)*43758.5453; return x - Math.floor(x); };
+function dot(x,y,r,col){ ctx.beginPath(); ctx.arc(x,y,Math.max(r,.15),0,TAU); ctx.fillStyle=col; ctx.fill(); }
+function ring(x,y,r,col,w){ if(r<=0) return; ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.strokeStyle=col; ctx.lineWidth=w||1; ctx.stroke(); }
+function glow(x,y,r,inner,outer){
+  if(r<=0) return;
+  const g = ctx.createRadialGradient(x,y,0,x,y,r);
+  g.addColorStop(0,inner); g.addColorStop(1,outer||'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r,0,TAU); ctx.fill();
+}
+function ell(x,y,rx,ry,rot,col,stroke,lw){
+  ctx.beginPath(); ctx.ellipse(x,y,Math.abs(rx),Math.abs(ry),rot||0,0,TAU);
+  if(stroke){ ctx.strokeStyle=col; ctx.lineWidth=lw||1; ctx.stroke(); } else { ctx.fillStyle=col; ctx.fill(); }
+}
+function poly(pts,col,stroke,lw){
+  ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath();
+  if(stroke){ ctx.strokeStyle=col; ctx.lineWidth=lw||1; ctx.stroke(); } else { ctx.fillStyle=col; ctx.fill(); }
+}
+function line(x1,y1,x2,y2,col,w){ ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.strokeStyle=col; ctx.lineWidth=w||1; ctx.stroke(); }
+function wobble(R,amp,freq,phase,col,lw){
+  ctx.beginPath();
+  for(let i=0;i<=48;i++){ const x=-R+2*R*i/48, y=Math.sin(x/R*freq+phase)*amp; i?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+  ctx.strokeStyle=col; ctx.lineWidth=lw||1; ctx.stroke();
+}
+function star(x,y,r,col){ glow(x,y,r*4,col,'rgba(0,0,0,0)'); dot(x,y,r,'#fff'); }
+
+/* deterministic scatter inside a disc */
+function scatter(n,seed){ const out=[];
+  for(let i=0;i<n;i++){ const a=rnd(seed+i)*TAU, rr=Math.sqrt(rnd(seed+i+0.37));
+    out.push([Math.cos(a)*rr, Math.sin(a)*rr, rnd(seed+i+0.71)]); }
+  return out; }
+
+/* ---------- the scenes ---------- */
+/* e: anchor exponent · draw(R,t) in pixels, origin at centre, R = one screen unit */
+const S = [
+{e:-35,name:'Planck length',size:'1.616 × 10⁻³⁵ m',
+ note:'The length built from G, ħ and c alone. It marks where a quantum theory of gravity must take over from general relativity — spacetime may not behave as a smooth geometry below it. Nothing here has ever been measured; the picture is a conjecture, not an observation.',
+ draw(R,t){
+   for(let i=-4;i<=4;i++){
+     ctx.beginPath();
+     for(let k=0;k<=40;k++){ const x=-R+2*R*k/40;
+       const y=i*R/4 + Math.sin(x/R*3.1+t*1.7+i)*R*.06*Math.sin(t*.9+i*1.3);
+       k?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+     ctx.strokeStyle='rgba(122,146,255,.20)'; ctx.lineWidth=1; ctx.stroke();
+   }
+   for(let i=-4;i<=4;i++){
+     ctx.beginPath();
+     for(let k=0;k<=40;k++){ const y=-R+2*R*k/40;
+       const x=i*R/4 + Math.cos(y/R*2.7-t*1.4+i)*R*.06*Math.cos(t*.8+i);
+       k?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+     ctx.strokeStyle='rgba(122,146,255,.13)'; ctx.lineWidth=1; ctx.stroke();
+   }
+   for(let k=0;k<30;k++){
+     const life=(Math.sin(t*2.2+k*2.31)+1)/2, a=rnd(k)*TAU, rr=(.1+rnd(k+7)*.92)*R;
+     glow(Math.cos(a)*rr, Math.sin(a*1.61)*rr*.85, R*.07*life+1,
+          'rgba(180,200,255,'+(.5*life).toFixed(3)+')');
+   }
+ }},
+
+{e:-26,name:'Beyond experiment',size:'10⁻²⁶ m',
+ note:'Sixteen orders of magnitude separate the Planck length from the smallest distance any experiment has resolved. Everything on this stretch of the rail — strings, extra dimensions, whatever else — is theory without data. It is worth noticing how much of the scale is empty.',
+ draw(R,t){
+   for(let i=0;i<5;i++){
+     const p=((t*.22+i/5)%1), r=R*(.1+p*.95);
+     ring(0,0,r,'rgba(120,140,200,'+(.30*(1-p)).toFixed(3)+')',1);
+   }
+   ctx.setLineDash([4,7]); ring(0,0,R*.62,'rgba(100,216,208,.30)',1); ctx.setLineDash([]);
+   for(let k=0;k<40;k++){ const a=rnd(k)*TAU, rr=rnd(k+3)*R;
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,.9,'rgba(150,165,200,'+(.05+.1*rnd(k+9)).toFixed(3)+')'); }
+ }},
+
+{e:-19,name:'Quarks and electrons',size:'< 10⁻¹⁹ m',
+ note:'Neither has a measured size. Collisions at the LHC show that if they have any internal structure it is smaller than about 10⁻¹⁹ m, so the Standard Model treats them as point particles. The colour force between quarks does not fade with distance — pull them apart and you make new hadrons instead.',
+ draw(R,t){
+   const q=[[Math.cos(t*.9),Math.sin(t*.9)],[Math.cos(t*.9+2.09),Math.sin(t*.9+2.09)],[Math.cos(t*.9+4.19),Math.sin(t*.9+4.19)]];
+   const col=['rgba(242,163,60,','rgba(100,216,208,','rgba(160,150,255,'];
+   for(let i=0;i<3;i++){
+     const j=(i+1)%3, x1=q[i][0]*R*.5, y1=q[i][1]*R*.5, x2=q[j][0]*R*.5, y2=q[j][1]*R*.5;
+     ctx.beginPath(); ctx.moveTo(x1,y1);
+     for(let k=1;k<=16;k++){ const u=k/16, mx=x1+(x2-x1)*u, my=y1+(y2-y1)*u,
+       nx=-(y2-y1), ny=(x2-x1), n=Math.hypot(nx,ny)||1, w=Math.sin(u*Math.PI*5-t*6)*R*.035*Math.sin(u*Math.PI);
+       ctx.lineTo(mx+nx/n*w, my+ny/n*w); }
+     ctx.strokeStyle='rgba(120,140,190,.45)'; ctx.lineWidth=1.2; ctx.stroke();
+   }
+   for(let i=0;i<3;i++){
+     const x=q[i][0]*R*.5+Math.sin(t*7+i)*R*.012, y=q[i][1]*R*.5+Math.cos(t*6+i)*R*.012;
+     glow(x,y,R*.10,col[i]+'.55)'); dot(x,y,R*.012+1.2,'#fff');
+   }
+ }},
+
+{e:-15,name:'Proton',size:'0.84 × 10⁻¹⁵ m (radius)',
+ note:'A bound state of three valence quarks in a boiling sea of gluons and quark–antiquark pairs. Only about 1% of its mass comes from the quark masses; the rest is the energy of the colour field, by E = mc². One femtometre is the natural unit of nuclear physics.',
+ draw(R,t){
+   glow(0,0,R*.86,'rgba(242,163,60,.13)');
+   ring(0,0,R*.62,'rgba(242,163,60,.45)',1.4);
+   ctx.setLineDash([3,5]); ring(0,0,R*.74,'rgba(242,163,60,.18)',1); ctx.setLineDash([]);
+   for(let k=0;k<26;k++){ const a=rnd(k)*TAU+t*.4, rr=Math.sqrt(rnd(k+5))*R*.58;
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,1.4,'rgba(140,160,210,'+(.15+.3*rnd(k+2)).toFixed(2)+')'); }
+   const cols=['rgba(255,120,120,','rgba(120,200,255,','rgba(160,255,170,'];
+   for(let i=0;i<3;i++){ const a=t*1.3+i*TAU/3, rr=R*.3*(1+.14*Math.sin(t*3+i));
+     const x=Math.cos(a)*rr, y=Math.sin(a)*rr*.82;
+     glow(x,y,R*.11,cols[i]+'.5)'); dot(x,y,R*.026,'#fff'); }
+ }},
+
+{e:-14,name:'Atomic nucleus',size:'2 – 15 × 10⁻¹⁵ m',
+ note:'Protons and neutrons packed at almost constant density, so the radius follows R = 1.20 A^⅓ fm: a uranium nucleus is only about six times wider than a proton despite having 238 nucleons. Nuclear matter reaches 2.3 × 10¹⁷ kg m⁻³ — a teaspoon would weigh a billion tonnes.',
+ draw(R,t){
+   const n=32; glow(0,0,R*.75,'rgba(100,216,208,.10)');
+   for(let k=0;k<n;k++){
+     const a=rnd(k)*TAU, rr=Math.cbrt(rnd(k+11))*R*.46;
+     const x=Math.cos(a)*rr+Math.sin(t*2+k)*R*.014, y=Math.sin(a)*rr+Math.cos(t*1.7+k*1.3)*R*.014;
+     const p=rnd(k+21)>.42;
+     glow(x,y,R*.085, p?'rgba(242,120,90,.45)':'rgba(120,150,200,.42)');
+     dot(x,y,R*.052, p?'#e8794f':'#8fa3c4');
+   }
+ }},
+
+{e:-12,name:'Inside the atom',size:'10⁻¹² m',
+ note:'Almost nothing. The nucleus holds 99.97% of the mass in about 10⁻¹⁵ of the volume — Rutherford\u2019s alpha particles mostly sailed straight through gold foil for exactly this reason. Scale a hydrogen atom to a 100 m running track and the nucleus is a 1 mm grain at the centre.',
+ draw(R,t){
+   glow(0,0,R*.10,'rgba(242,163,60,.5)'); dot(0,0,R*.012,'#ffd7a0');
+   ctx.setLineDash([2,10]); ring(0,0,R*.9,'rgba(140,160,210,.22)',1); ctx.setLineDash([]);
+   const a=t*.55, x=Math.cos(a)*R*.9, y=Math.sin(a)*R*.9;
+   glow(x,y,R*.07,'rgba(100,216,208,.45)'); dot(x,y,1.6,'#cffcf8');
+   ctx.font='11px ui-monospace,monospace'; ctx.fillStyle='rgba(130,140,160,.55)'; ctx.textAlign='center';
+   ctx.fillText('empty', 0, -R*.42);
+ }},
+
+{e:-10,name:'Atom',size:'1 × 10⁻¹⁰ m',
+ note:'The Bohr radius is 5.29 × 10⁻¹¹ m, and most atoms are 0.1–0.5 nm across. The electron is not a ball on a track: the cloud is |ψ|², the probability of finding it at each point, and it is what gives the atom its size.',
+ draw(R,t){
+   const g=ctx.createRadialGradient(0,0,R*.05,0,0,R*.72);
+   g.addColorStop(0,'rgba(100,216,208,.30)'); g.addColorStop(.45,'rgba(80,150,220,.16)'); g.addColorStop(1,'rgba(60,90,180,0)');
+   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,R*.72,0,TAU); ctx.fill();
+   for(let k=0;k<130;k++){ const a=rnd(k)*TAU, rr=(.15+.75*Math.pow(rnd(k+13),.7))*R*.66;
+     dot(Math.cos(a)*rr+Math.sin(t+k)*1.5, Math.sin(a)*rr+Math.cos(t*1.1+k)*1.5, .9,'rgba(190,230,255,.35)'); }
+   for(let i=0;i<2;i++){ const a=t*(1.1+i*.5)+i*2.2, rx=R*(.5+i*.12), ry=R*(.28-i*.08);
+     ctx.save(); ctx.rotate(i*1.05);
+     ell(0,0,rx,ry,0,'rgba(140,170,220,.20)',true,1);
+     const x=Math.cos(a)*rx, y=Math.sin(a)*ry;
+     glow(x,y,R*.07,'rgba(100,216,208,.55)'); dot(x,y,2,'#eafffd'); ctx.restore(); }
+   glow(0,0,R*.05,'rgba(242,163,60,.85)'); dot(0,0,R*.014,'#ffdca8');
+ }},
+
+{e:-9,name:'Molecule',size:'0.3 – 3 × 10⁻⁹ m',
+ note:'Water: two O–H bonds of 96 pm at 104.5°, which is why the molecule is polar and why ice floats. At the nanometre scale chemistry becomes geometry — shape decides what a molecule can do.',
+ draw(R,t){
+   const mols=[[0,0,0],[.62,.30,1.1],[-.60,.34,2.2],[.10,-.62,4.0]];
+   mols.forEach((m,i)=>{
+     const cx=m[0]*R*.7, cy=m[1]*R*.7, rot=m[2]+t*.25*(i%2?1:-1);
+     const bl=R*.20, half=52.25*Math.PI/180;
+     const h1=[cx+Math.cos(rot-half)*bl, cy+Math.sin(rot-half)*bl];
+     const h2=[cx+Math.cos(rot+half)*bl, cy+Math.sin(rot+half)*bl];
+     line(cx,cy,h1[0],h1[1],'rgba(200,215,240,.5)',R*.035);
+     line(cx,cy,h2[0],h2[1],'rgba(200,215,240,.5)',R*.035);
+     glow(cx,cy,R*.16,'rgba(232,90,80,.30)'); dot(cx,cy,R*.088,'#e0554b');
+     dot(h1[0],h1[1],R*.05,'#dfe6f2'); dot(h2[0],h2[1],R*.05,'#dfe6f2');
+   });
+   ctx.setLineDash([2,4]);
+   line(mols[0][0]*R*.7,mols[0][1]*R*.7,mols[1][0]*R*.7,mols[1][1]*R*.7,'rgba(100,216,208,.35)',1);
+   line(mols[0][0]*R*.7,mols[0][1]*R*.7,mols[2][0]*R*.7,mols[2][1]*R*.7,'rgba(100,216,208,.35)',1);
+   ctx.setLineDash([]);
+ }},
+
+{e:-8,name:'DNA',size:'2.0 × 10⁻⁹ m wide',
+ note:'The double helix is 2.0 nm across, turns once every 3.4 nm, and rises 0.34 nm per base pair. Stretched out, the DNA in one human cell would run about 2 m; it fits inside a nucleus 10⁻⁵ m across.',
+ draw(R,t){
+   const H=R*1.5, W=R*.28;
+   for(let s=0;s<2;s++){
+     ctx.beginPath();
+     for(let k=0;k<=90;k++){ const y=-H/2+H*k/90, ph=y/R*4.2+t*1.1+s*Math.PI, x=Math.sin(ph)*W;
+       k?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+     ctx.strokeStyle=s?'rgba(100,216,208,.75)':'rgba(242,163,60,.75)'; ctx.lineWidth=R*.035; ctx.stroke();
+   }
+   for(let k=0;k<=28;k++){
+     const y=-H/2+H*k/28, ph=y/R*4.2+t*1.1, x1=Math.sin(ph)*W, x2=Math.sin(ph+Math.PI)*W;
+     const d=Math.abs(Math.cos(ph));
+     line(x1,y,x2,y,'rgba(190,205,235,'+(.15+.4*d).toFixed(2)+')',R*.018);
+   }
+ }},
+
+{e:-7,name:'Virus',size:'2 – 30 × 10⁻⁸ m',
+ note:'A protein shell around a strand of genetic code, 20–300 nm across. Visible light spans 400–700 nm, so no optical microscope can resolve one: the diffraction limit is about λ/2. Viruses were inferred long before they were ever seen, by electron microscope.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(t*.15);
+   const pts=[]; for(let i=0;i<6;i++){ const a=i*TAU/6-Math.PI/2; pts.push([Math.cos(a)*R*.46,Math.sin(a)*R*.46]); }
+   glow(0,0,R*.7,'rgba(160,150,255,.14)');
+   poly(pts,'rgba(120,110,200,.35)');
+   poly(pts,'rgba(180,175,255,.8)',true,1.4);
+   for(let i=0;i<6;i++){ line(0,0,pts[i][0],pts[i][1],'rgba(180,175,255,.28)',1); }
+   for(let i=0;i<12;i++){ const a=i*TAU/12+.26, x=Math.cos(a)*R*.5, y=Math.sin(a)*R*.5;
+     line(x,y,Math.cos(a)*R*.62,Math.sin(a)*R*.62,'rgba(180,175,255,.6)',1.4);
+     dot(Math.cos(a)*R*.65,Math.sin(a)*R*.65,R*.024,'rgba(200,196,255,.85)'); }
+   ctx.restore();
+   ctx.save(); ctx.translate(0,R*.85); wobble(R,R*.05,9,-t*3,'rgba(242,163,60,.45)',1.2); ctx.restore();
+ }},
+
+{e:-6,name:'Bacterium',size:'1 – 5 × 10⁻⁶ m',
+ note:'E. coli is roughly 2 µm long and 0.5 µm wide, with no nucleus and no organelles bound by membranes. This is also the size of a mitochondrion — evidence for the idea that mitochondria were once free-living bacteria.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(Math.sin(t*.4)*.12);
+   const L=R*.62, W=R*.24;
+   ctx.beginPath(); ctx.moveTo(-L,-W); ctx.lineTo(L-W,-W);
+   ctx.arc(L-W,0,W,-Math.PI/2,Math.PI/2); ctx.lineTo(-L,W); ctx.arc(-L,0,W,Math.PI/2,-Math.PI/2);
+   ctx.closePath();
+   ctx.fillStyle='rgba(100,190,160,.22)'; ctx.fill();
+   ctx.strokeStyle='rgba(140,230,190,.75)'; ctx.lineWidth=1.6; ctx.stroke();
+   for(let k=0;k<16;k++){ const x=(rnd(k)*1.6-.8)*L*.9, y=(rnd(k+4)*1.5-.75)*W*.8;
+     dot(x,y,R*.017,'rgba(220,255,240,.5)'); }
+   ctx.beginPath();
+   for(let k=0;k<=30;k++){ const u=k/30, x=-L-W-u*R*.55, y=Math.sin(u*10-t*7)*R*.07*u;
+     k?ctx.lineTo(x,y):ctx.moveTo(x,y); }
+   ctx.strokeStyle='rgba(140,230,190,.55)'; ctx.lineWidth=1.3; ctx.stroke();
+   ctx.restore();
+ }},
+
+{e:-5,name:'Living cell',size:'1 – 3 × 10⁻⁵ m',
+ note:'Most human cells are 10–30 µm; a red blood cell is 8 µm and just squeezes through the narrowest capillary. Diffusion sets the limit — beyond about 100 µm, molecules cannot cross the cell fast enough to keep it alive.',
+ draw(R,t){
+   glow(0,0,R*.9,'rgba(100,216,208,.06)');
+   ring(0,0,R*.72,'rgba(150,230,220,.8)',2);
+   ctx.beginPath(); ctx.arc(0,0,R*.72,0,TAU); ctx.fillStyle='rgba(60,150,150,.12)'; ctx.fill();
+   ctx.save(); ctx.beginPath(); ctx.arc(0,0,R*.72,0,TAU); ctx.clip();
+   glow(-R*.1,-R*.06,R*.3,'rgba(160,150,255,.35)');
+   ring(-R*.1,-R*.06,R*.20,'rgba(190,180,255,.8)',1.5);
+   for(let k=0;k<9;k++){
+     const a=rnd(k)*TAU+t*.25*(k%2?1:-1), rr=(.34+rnd(k+3)*.3)*R;
+     const x=Math.cos(a)*rr, y=Math.sin(a)*rr*.9;
+     ell(x,y,R*.085,R*.036,a,'rgba(242,163,60,.55)');
+     ell(x,y,R*.085,R*.036,a,'rgba(255,200,140,.7)',true,1);
+   }
+   for(let k=0;k<26;k++){ const a=rnd(k+40)*TAU, rr=rnd(k+50)*R*.68;
+     dot(Math.cos(a)*rr,Math.sin(a)*rr+Math.sin(t+k)*2,R*.012,'rgba(220,255,250,.35)'); }
+   ctx.restore();
+ }},
+
+{e:-4,name:'Human hair',size:'2 – 20 × 10⁻⁵ m',
+ note:'A hair is 17–180 µm thick and a human egg cell about 120 µm — right at the limit of the naked eye, which resolves roughly 50 µm at reading distance. Below this line you need a lens.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(.22+Math.sin(t*.3)*.03);
+   const W=R*.17;
+   const g=ctx.createLinearGradient(0,-W,0,W);
+   g.addColorStop(0,'rgba(120,95,70,.85)'); g.addColorStop(.4,'rgba(200,165,120,.9)'); g.addColorStop(1,'rgba(90,70,50,.85)');
+   ctx.fillStyle=g; ctx.fillRect(-R*1.6,-W,R*3.2,W*2);
+   for(let k=-14;k<14;k++){
+     ctx.beginPath(); ctx.moveTo(k*R*.13,-W);
+     ctx.quadraticCurveTo(k*R*.13+R*.05,0,k*R*.13,W);
+     ctx.strokeStyle='rgba(60,45,35,.35)'; ctx.lineWidth=1; ctx.stroke();
+   }
+   ctx.restore();
+   for(let k=0;k<7;k++){ const x=(rnd(k)*2-1)*R*.9, y=(rnd(k+9)*2-1)*R*.75;
+     if(Math.abs(y)<R*.3) continue;
+     ell(x,y,R*.05,R*.02,rnd(k+2)*3,'rgba(230,90,90,.45)'); }
+ }},
+
+{e:-3,name:'Millimetre',size:'1 × 10⁻³ m',
+ note:'An ant, a grain of sand, the thickness of a coin. This is where the metric ruler on a lab bench runs out of divisions — and where surface tension and friction start to matter more than weight.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(-.15); ctx.scale(1,1);
+   const bob=Math.sin(t*4)*R*.012; ctx.translate(0,bob);
+   for(let s=-1;s<=1;s+=2){ for(let i=0;i<3;i++){
+     const ph=t*5+i*2+ (s>0?0:Math.PI), kx=-R*.1+i*R*.16;
+     ctx.beginPath(); ctx.moveTo(kx,0);
+     ctx.quadraticCurveTo(kx+R*.12*s*0+R*.06, s*R*.16, kx+R*.02+Math.sin(ph)*R*.05, s*R*.34);
+     ctx.strokeStyle='rgba(90,70,60,.9)'; ctx.lineWidth=R*.016; ctx.stroke();
+   }}
+   ell(R*.34,0,R*.20,R*.155,0,'#4b3a30');     // gaster
+   ell(R*.06,0,R*.10,R*.085,0,'#5a4638');     // thorax
+   ell(-R*.14,0,R*.11,R*.095,0,'#4b3a30');    // head
+   for(let s=-1;s<=1;s+=2){ ctx.beginPath(); ctx.moveTo(-R*.20,s*R*.05);
+     ctx.quadraticCurveTo(-R*.34,s*R*.16,-R*.40,s*R*.06);
+     ctx.strokeStyle='rgba(90,70,60,.9)'; ctx.lineWidth=R*.012; ctx.stroke(); }
+   dot(-R*.20,-R*.03,R*.02,'#1b1410'); dot(-R*.20,R*.03,R*.02,'#1b1410');
+   ctx.restore();
+ }},
+
+{e:-2,name:'Centimetre',size:'1 × 10⁻² m',
+ note:'A coin, a bee, a fingernail. Everyday objects finally appear — and note how far we have already travelled: this is thirty-three decades above the Planck length, with only twenty-eight left to reach the edge of the universe.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(Math.sin(t*.5)*.06);
+   const r=R*.5;
+   const g=ctx.createLinearGradient(-r,-r,r,r);
+   g.addColorStop(0,'#c9b28a'); g.addColorStop(.5,'#8d7a58'); g.addColorStop(1,'#e3d2ad');
+   ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.fillStyle=g; ctx.fill();
+   ring(0,0,r*.88,'rgba(60,50,35,.45)',R*.02);
+   for(let i=0;i<40;i++){ const a=i*TAU/40; line(Math.cos(a)*r*.93,Math.sin(a)*r*.93,Math.cos(a)*r,Math.sin(a)*r,'rgba(60,50,35,.4)',1.2); }
+   ctx.beginPath(); ctx.arc(0,0,r*.42,0,TAU); ctx.strokeStyle='rgba(60,50,35,.4)'; ctx.lineWidth=R*.014; ctx.stroke();
+   line(-r*.2,r*.1,r*.2,-r*.15,'rgba(60,50,35,.35)',R*.02);
+   ctx.restore();
+ }},
+
+{e:-1,name:'Hand',size:'1.8 × 10⁻¹ m',
+ note:'The decimetre — a hand span, a sheet of A5, a coffee cup. Human units of length were built from the body long before they were built from the metre, and the metre itself was once a fraction of the Earth\u2019s quadrant.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(-.08+Math.sin(t*.6)*.02);
+   ctx.strokeStyle='rgba(242,190,150,.9)'; ctx.lineCap='round'; ctx.fillStyle='rgba(242,190,150,.22)';
+   ctx.beginPath(); ctx.moveTo(-R*.24,R*.55);
+   ctx.quadraticCurveTo(-R*.30,-R*.05,-R*.16,-R*.14);
+   ctx.lineTo(R*.18,-R*.16); ctx.quadraticCurveTo(R*.30,R*.05,R*.22,R*.55);
+   ctx.closePath(); ctx.fill(); ctx.lineWidth=2; ctx.stroke();
+   for(let i=0;i<4;i++){
+     const x=-R*.15+i*R*.115, len=R*(.42-Math.abs(i-1.3)*.07), sw=Math.sin(t*1.1+i)*R*.015;
+     ctx.beginPath(); ctx.moveTo(x,-R*.14); ctx.lineTo(x+sw,-R*.14-len);
+     ctx.lineWidth=R*.075; ctx.stroke();
+   }
+   ctx.beginPath(); ctx.moveTo(-R*.26,R*.16); ctx.lineTo(-R*.5,-R*.06); ctx.lineWidth=R*.085; ctx.stroke();
+   ctx.restore();
+ }},
+
+{e:0,name:'Human',size:'1.7 m',
+ note:'The metre — the only scale on this rail we experience directly. Everything else on the slider is reached by instruments and inference, in both directions.',
+ draw(R,t){
+   const b=Math.sin(t*1.2)*R*.008;
+   ctx.save(); ctx.translate(0,b);
+   ctx.strokeStyle='rgba(232,236,246,.92)'; ctx.lineCap='round'; ctx.lineWidth=R*.055;
+   dot(0,-R*.56,R*.10,'rgba(232,236,246,.92)');
+   line(0,-R*.46,0,R*.06,'rgba(232,236,246,.92)',R*.06);
+   ctx.beginPath(); ctx.moveTo(0,-R*.34); ctx.lineTo(-R*.24,-R*.02+Math.sin(t*1.2)*R*.02); ctx.stroke();
+   ctx.beginPath(); ctx.moveTo(0,-R*.34); ctx.lineTo(R*.24,-R*.04-Math.sin(t*1.2)*R*.02); ctx.stroke();
+   ctx.beginPath(); ctx.moveTo(0,R*.06); ctx.lineTo(-R*.15,R*.58); ctx.stroke();
+   ctx.beginPath(); ctx.moveTo(0,R*.06); ctx.lineTo(R*.15,R*.58); ctx.stroke();
+   ctx.restore();
+   line(-R*.62,R*.62,-R*.62,-R*.62,'rgba(242,163,60,.5)',1);
+   for(let i=0;i<=10;i++){ const y=R*.62-i*R*.124; line(-R*.62,y,-R*.62+(i%5?R*.03:R*.06),y,'rgba(242,163,60,.5)',1); }
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(242,163,60,.7)'; ctx.textAlign='left';
+   ctx.fillText('1 m', -R*.58, -R*.55);
+ }},
+
+{e:1,name:'House and tree',size:'10 m',
+ note:'Ten metres: a two-storey house, a mature oak, a blue whale at 30 m. Trees can only stand this tall because water is pulled up under tension by evaporation at the leaves — cohesion, not pumping.',
+ draw(R,t){
+   line(-R,R*.5,R,R*.5,'rgba(120,130,150,.5)',1.5);
+   ctx.fillStyle='rgba(150,160,185,.35)'; ctx.fillRect(-R*.62,-R*.02,R*.62,R*.52);
+   poly([[-R*.70,-R*.02],[-R*.31,-R*.34],[R*.08,-R*.02]],'rgba(200,120,90,.55)');
+   ctx.fillStyle='rgba(242,163,60,.55)'; ctx.fillRect(-R*.55,R*.10,R*.14,R*.14);
+   ctx.fillStyle='rgba(242,163,60,.35)'; ctx.fillRect(-R*.20,R*.10,R*.14,R*.14);
+   ctx.fillStyle='rgba(60,50,45,.7)'; ctx.fillRect(-R*.38,R*.24,R*.12,R*.26);
+   const sw=Math.sin(t*.9)*R*.02;
+   ctx.strokeStyle='rgba(110,85,60,.9)'; ctx.lineWidth=R*.05;
+   ctx.beginPath(); ctx.moveTo(R*.5,R*.5); ctx.quadraticCurveTo(R*.5+sw*.5,R*.15,R*.52+sw,-R*.05); ctx.stroke();
+   glow(R*.52+sw,-R*.22,R*.32,'rgba(90,170,110,.5)');
+   dot(R*.52+sw,-R*.22,R*.20,'rgba(80,150,100,.75)');
+   dot(R*.36+sw,-R*.12,R*.13,'rgba(70,140,95,.7)');
+   dot(R*.66+sw,-R*.10,R*.12,'rgba(95,165,110,.7)');
+ }},
+
+{e:2,name:'City block',size:'100 m',
+ note:'A football pitch is 105 m; the Great Pyramid was 147 m and held the record for 3800 years. A hundred metres is also how far light travels in about a third of a microsecond.',
+ draw(R,t){
+   const H=[.55,.85,.40,.70,1.0,.50,.75,.35];
+   line(-R,R*.6,R,R*.6,'rgba(120,130,150,.4)',1.5);
+   H.forEach((h,i)=>{
+     const w=R*.19, x=-R*.86+i*R*.22, top=R*.6-h*R*1.0;
+     ctx.fillStyle='rgba(70,80,105,'+(.45+.1*(i%2))+')'; ctx.fillRect(x,top,w,R*.6-top);
+     ctx.strokeStyle='rgba(140,160,200,.25)'; ctx.lineWidth=1; ctx.strokeRect(x,top,w,R*.6-top);
+     for(let r=0;r<Math.floor(h*8);r++) for(let cc=0;cc<3;cc++){
+       const lit=rnd(i*31+r*7+cc)>.45?(.25+.55*Math.abs(Math.sin(t*.5+i+r))):.05;
+       ctx.fillStyle='rgba(242,200,130,'+lit.toFixed(2)+')';
+       ctx.fillRect(x+w*.16+cc*w*.28, top+R*.05+r*R*.075, w*.15, R*.035);
+     }
+   });
+ }},
+
+{e:3,name:'Kilometre',size:'1 × 10³ m',
+ note:'A town centre from above; the Burj Khalifa is 828 m tall. Sound covers a kilometre in about three seconds, which is the rule of thumb for timing thunder.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(.18);
+   ctx.fillStyle='rgba(35,42,58,.55)'; ctx.fillRect(-R,-R,2*R,2*R);
+   for(let i=-3;i<=3;i++){
+     ctx.fillStyle='rgba(120,135,165,.30)';
+     ctx.fillRect(i*R*.32-R*.03,-R,R*.06,2*R);
+     ctx.fillRect(-R,i*R*.32-R*.03,2*R,R*.06);
+   }
+   for(let i=-3;i<3;i++) for(let j=-3;j<3;j++){
+     if(rnd(i*13+j*7)>.62) continue;
+     ctx.fillStyle='rgba(90,105,135,'+(.3+.35*rnd(i*5+j)).toFixed(2)+')';
+     ctx.fillRect(i*R*.32+R*.04, j*R*.32+R*.04, R*.24, R*.24);
+   }
+   ctx.fillStyle='rgba(80,150,100,.5)'; ctx.fillRect(-R*.28,-R*.28,R*.24,R*.24);
+   const p=(t*.14)%1;
+   dot(-R+2*R*p, -R*.03+R*.32*0, R*.02,'rgba(242,200,130,.9)');
+   ctx.restore();
+ }},
+
+{e:4,name:'Mountain',size:'1 × 10⁴ m',
+ note:'Everest is 8850 m and airliners cruise at about 11 km — already above 75% of the atmosphere by mass. Mountains cannot grow much taller on Earth: rock at the base begins to flow under its own weight.',
+ draw(R,t){
+   const g=ctx.createLinearGradient(0,-R,0,R*.6);
+   g.addColorStop(0,'rgba(60,80,130,.45)'); g.addColorStop(1,'rgba(20,26,40,0)');
+   ctx.fillStyle=g; ctx.fillRect(-R,-R,2*R,R*1.6);
+   poly([[-R*1.1,R*.6],[-R*.45,-R*.30],[R*.05,R*.6]],'rgba(58,68,92,.85)');
+   poly([[-R*.62,R*.6],[R*.15,-R*.48],[R*1.1,R*.6]],'rgba(74,86,112,.9)');
+   poly([[-R*.10,-R*.16],[R*.15,-R*.48],[R*.40,-R*.16],[R*.24,-R*.24],[R*.10,-R*.13],[0,-R*.22]],'rgba(232,240,255,.85)');
+   poly([[-R*.62,-R*.14],[-R*.45,-R*.30],[-R*.28,-R*.14],[-R*.38,-R*.19]],'rgba(232,240,255,.6)');
+   for(let k=0;k<4;k++){ const x=(rnd(k)*2-1)*R*.8+Math.sin(t*.2+k)*R*.1;
+     ell(x,-R*.55+rnd(k+3)*R*.2,R*.24,R*.05,0,'rgba(220,232,255,.18)'); }
+   ctx.fillStyle='rgba(30,38,55,.9)'; ctx.fillRect(-R*1.1,R*.6,2.2*R,R*.6);
+ }},
+
+{e:5,name:'Weather system',size:'1 × 10⁵ m',
+ note:'The Kármán line — the conventional edge of space — is at 100 km, and the ISS orbits just above it. A cyclone this wide is turned into a spiral by the Coriolis effect of the Earth\u2019s rotation.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(t*.22);
+   for(let arm=0;arm<3;arm++){
+     ctx.beginPath();
+     for(let k=0;k<=60;k++){
+       const u=k/60, a=arm*TAU/3+u*3.4, rr=R*(.08+u*.82);
+       const x=Math.cos(a)*rr, y=Math.sin(a)*rr;
+       k?ctx.lineTo(x,y):ctx.moveTo(x,y);
+     }
+     ctx.strokeStyle='rgba(225,235,255,.30)'; ctx.lineWidth=R*.11; ctx.lineCap='round'; ctx.stroke();
+     ctx.strokeStyle='rgba(255,255,255,.22)'; ctx.lineWidth=R*.05; ctx.stroke();
+   }
+   ctx.restore();
+   glow(0,0,R*.14,'rgba(20,30,50,.9)'); dot(0,0,R*.05,'rgba(10,16,30,.95)');
+   ctx.globalCompositeOperation='destination-over';
+   ctx.fillStyle='rgba(30,70,110,.55)'; ctx.fillRect(-R*1.2,-R*1.2,R*2.4,R*2.4);
+   ctx.globalCompositeOperation='source-over';
+ }},
+
+{e:6,name:'Continent',size:'1 × 10⁶ m',
+ note:'A thousand kilometres — the width of a large country, or a third of the Moon\u2019s diameter (3.48 × 10⁶ m). The curve of the horizon is now unmistakable.',
+ draw(R,t){
+   ctx.save();
+   ctx.beginPath(); ctx.arc(0,R*1.25,R*1.75,0,TAU); ctx.clip();
+   ctx.fillStyle='rgba(24,62,105,.95)'; ctx.fillRect(-R*2,-R*2,R*4,R*4);
+   const dr=t*.02;
+   for(let k=0;k<7;k++){
+     const x=(rnd(k)*2-1)*R*.9+Math.sin(dr+k)*R*.02, y=R*.4+(rnd(k+5)*2-1)*R*.7;
+     ell(x,y,R*(.18+rnd(k+2)*.3),R*(.10+rnd(k+9)*.18),rnd(k)*3,'rgba(96,120,80,.9)');
+   }
+   for(let k=0;k<9;k++){
+     const x=(rnd(k+30)*2-1)*R*1.1, y=R*.1+(rnd(k+40)*2-1)*R*.9;
+     ell(x,y,R*(.14+rnd(k+11)*.22),R*(.06+rnd(k+13)*.09),.4,'rgba(255,255,255,.35)');
+   }
+   ctx.restore();
+   ctx.beginPath(); ctx.arc(0,R*1.25,R*1.75,0,TAU);
+   ctx.strokeStyle='rgba(150,210,255,.6)'; ctx.lineWidth=2; ctx.stroke();
+   glow(0,R*1.25,R*1.95,'rgba(0,0,0,0)','rgba(120,190,255,.16)');
+ }},
+
+{e:7,name:'Earth',size:'1.276 × 10⁷ m',
+ note:'Diameter at the equator, 12 756 km. Eratosthenes measured it to within a few per cent around 240 BC from the angle of shadows in two Egyptian cities. Light circles it 7.5 times a second.',
+ draw(R,t){
+   const r=R*.62, rot=t*.12;
+   glow(0,0,r*1.28,'rgba(0,0,0,0)','rgba(110,180,255,.18)');
+   ctx.save(); ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.clip();
+   ctx.fillStyle='#12457a'; ctx.fillRect(-r,-r,2*r,2*r);
+   for(let k=0;k<12;k++){
+     const lon=(rnd(k)*TAU+rot)%TAU, lat=(rnd(k+7)-.5)*1.5;
+     const px=Math.sin(lon), depth=Math.cos(lon);
+     if(depth<-.2) continue;
+     ell(px*r*.92, lat*r*.72, r*(.10+rnd(k+2)*.22)*Math.max(depth,.15), r*(.09+rnd(k+3)*.16),0,'rgba(104,132,78,.95)');
+   }
+   for(let k=0;k<10;k++){
+     const lon=(rnd(k+21)*TAU+rot*1.3)%TAU, lat=(rnd(k+27)-.5)*1.7, px=Math.sin(lon), depth=Math.cos(lon);
+     if(depth<0) continue;
+     ell(px*r*.94, lat*r*.75, r*(.14+rnd(k+31)*.2)*depth, r*.06,.3,'rgba(255,255,255,.4)');
+   }
+   ell(0,-r*.86,r*.5,r*.2,0,'rgba(240,250,255,.75)');
+   ell(0, r*.86,r*.55,r*.22,0,'rgba(240,250,255,.85)');
+   const sg=ctx.createLinearGradient(-r,0,r,0);
+   sg.addColorStop(0,'rgba(0,0,0,0)'); sg.addColorStop(.55,'rgba(0,0,0,.15)'); sg.addColorStop(1,'rgba(0,4,12,.8)');
+   ctx.fillStyle=sg; ctx.fillRect(-r,-r,2*r,2*r);
+   ctx.restore();
+   ring(0,0,r,'rgba(150,210,255,.35)',1);
+ }},
+
+{e:8,name:'Earth and Moon',size:'3.84 × 10⁸ m',
+ note:'The Moon is a quarter of Earth\u2019s width, thirty Earth-diameters away. Light makes the crossing in 1.28 s — the delay you can hear in the Apollo transmissions.',
+ draw(R,t){
+   const a=t*.25, ox=Math.cos(a)*R*.78, oy=Math.sin(a)*R*.62;
+   ctx.setLineDash([2,6]); ell(0,0,R*.78,R*.62,0,'rgba(140,170,210,.25)',true,1); ctx.setLineDash([]);
+   glow(0,0,R*.24,'rgba(0,0,0,0)','rgba(110,180,255,.2)');
+   dot(0,0,R*.16,'#1b5c94'); 
+   ell(-R*.04,-R*.03,R*.07,R*.05,.4,'rgba(104,132,78,.95)');
+   ell(R*.06,R*.05,R*.05,R*.035,0,'rgba(104,132,78,.9)');
+   ctx.save(); ctx.beginPath(); ctx.arc(0,0,R*.16,0,TAU); ctx.clip();
+   const sg=ctx.createLinearGradient(-R*.16,0,R*.16,0);
+   sg.addColorStop(0,'rgba(0,0,0,0)'); sg.addColorStop(1,'rgba(0,4,12,.75)');
+   ctx.fillStyle=sg; ctx.fillRect(-R*.2,-R*.2,R*.4,R*.4); ctx.restore();
+   dot(ox,oy,R*.044,'#9aa2ad');
+   dot(ox-R*.012,oy-R*.01,R*.012,'rgba(120,128,140,.9)');
+   dot(ox+R*.016,oy+R*.014,R*.008,'rgba(120,128,140,.9)');
+ }},
+
+{e:9,name:'The Sun',size:'1.392 × 10⁹ m',
+ note:'109 Earths across and 333 000 times their mass, fusing 600 million tonnes of hydrogen a second. It converts about 4 million tonnes of that mass into energy every second — and has done for 4.6 billion years.',
+ draw(R,t){
+   const r=R*.55;
+   glow(0,0,r*2.1,'rgba(255,170,60,.28)');
+   glow(0,0,r*1.25,'rgba(255,210,120,.5)');
+   dot(0,0,r,'#ffd27a');
+   for(let k=0;k<40;k++){
+     const a=rnd(k)*TAU, rr=Math.sqrt(rnd(k+3))*r*.95, s=(.4+.6*Math.abs(Math.sin(t*1.5+k)));
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,r*.05*s,'rgba(255,240,190,'+(.25*s).toFixed(2)+')');
+   }
+   for(let k=0;k<3;k++){
+     const a=k*2.1+t*.15, x=Math.cos(a)*r, y=Math.sin(a)*r, s=(.6+.4*Math.sin(t*2+k));
+     ctx.beginPath(); ctx.moveTo(x,y);
+     ctx.quadraticCurveTo(x*1.5, y*1.5-r*.3*s, x*1.15+r*.2*s, y*1.15);
+     ctx.strokeStyle='rgba(255,150,80,'+(.5*s).toFixed(2)+')'; ctx.lineWidth=r*.045; ctx.stroke();
+   }
+   dot(R*.9,R*.55,R*.005,'#7fb4e8');
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(160,180,210,.7)'; ctx.textAlign='left';
+   ctx.fillText('Earth', R*.9+6, R*.55+3.5);
+ }},
+
+{e:11,name:'Earth\u2019s orbit',size:'1.496 × 10¹¹ m',
+ note:'One astronomical unit. Sunlight takes 8 min 20 s to arrive, so the Sun you see set has already been below the horizon for eight minutes. Kepler\u2019s third law shows here: the inner planets sweep round fastest.',
+ draw(R,t){
+   const orb=[[.20,.24,'#a98b76'],[.34,.62,'#d9b98a'],[.50,1.0,'#5da2e0'],[.72,1.88,'#c96a4b']];
+   glow(0,0,R*.3,'rgba(255,190,90,.45)'); dot(0,0,R*.055,'#ffd27a');
+   orb.forEach((o,i)=>{
+     ring(0,0,R*o[0],'rgba(140,165,205,.22)',1);
+     const a=t*.55/o[1]+i*1.7, x=Math.cos(a)*R*o[0], y=Math.sin(a)*R*o[0]*.94;
+     glow(x,y,R*.05,'rgba(255,255,255,.12)');
+     dot(x,y,R*(i===2?.022:.017),o[2]);
+     if(i===2){ ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(160,190,230,.8)'; ctx.textAlign='left'; ctx.fillText('1 AU', x+7, y+3); }
+   });
+ }},
+
+{e:13,name:'Solar System',size:'~1.8 × 10¹³ m',
+ note:'Neptune orbits at 4.5 × 10¹² m; the heliopause, where the solar wind gives way to interstellar space, lies near 1.8 × 10¹³ m — Voyager 1 crossed it in 2012 at 121 AU. The planets are drawn far too large: at true scale they would be invisible.',
+ draw(R,t){
+   glow(0,0,R*.12,'rgba(255,190,90,.6)'); dot(0,0,R*.02,'#ffe6b0');
+   const A=[.045,.083,.115,.175,.60,1.10,2.2,3.45];
+   const col=['#a98b76','#d9b98a','#5da2e0','#c96a4b','#d8a86a','#e6cf9a','#8fd6e6','#5f86d8'];
+   A.forEach((au,i)=>{
+     const r=R*.78*Math.pow(au/3.45,.62);
+     ring(0,0,r,'rgba(130,155,195,'+(i>3?.28:.16)+')',1);
+     const a=t*.5/Math.pow(au,.9)+i*2.1, x=Math.cos(a)*r, y=Math.sin(a)*r*.92;
+     dot(x,y,R*(i>3?.020:.012),col[i]);
+   });
+   for(let k=0;k<90;k++){ const a=rnd(k)*TAU, rr=R*(.80+rnd(k+4)*.07);
+     dot(Math.cos(a)*rr,Math.sin(a)*rr*.92,.9,'rgba(180,200,230,.35)'); }
+   ctx.setLineDash([3,7]); ring(0,0,R*.95,'rgba(100,216,208,.4)',1.2); ctx.setLineDash([]);
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(100,216,208,.7)'; ctx.textAlign='center';
+   ctx.fillText('heliopause', 0, -R*.95-7);
+ }},
+
+{e:16,name:'Light-year',size:'9.461 × 10¹⁵ m',
+ note:'The distance light covers in a year — and roughly the outer edge of the Oort cloud, a shell of icy bodies loosely bound to the Sun. Beyond it the Sun is just another star.',
+ draw(R,t){
+   for(let k=0;k<420;k++){
+     const a=rnd(k)*TAU, rr=R*(.62+Math.pow(rnd(k+7),.5)*.34);
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,.85,'rgba(200,215,245,'+(.15+.35*rnd(k+2)).toFixed(2)+')');
+   }
+   ring(0,0,R*.62,'rgba(140,165,205,.12)',1);
+   glow(0,0,R*.18,'rgba(255,200,110,.45)'); dot(0,0,R*.014,'#fff');
+   const p=(t*.35)%1;
+   ring(0,0,R*.95*p,'rgba(100,216,208,'+(.5*(1-p)).toFixed(2)+')',1.4);
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(100,216,208,.65)'; ctx.textAlign='left';
+   ctx.fillText('light, 1 year', R*.12, -R*.06);
+ }},
+
+{e:17,name:'Nearest star',size:'4.0 × 10¹⁶ m',
+ note:'Proxima Centauri is 4.24 light-years away: a signal sent now arrives in 2030, and the reply comes back in 2035. Stars in the galactic disc are typically separated by ten million times their own diameter.',
+ draw(R,t){
+   for(let k=0;k<70;k++){ const x=(rnd(k)*2-1)*R, y=(rnd(k+9)*2-1)*R;
+     dot(x,y,.8,'rgba(200,215,245,'+(.1+.25*rnd(k+3)).toFixed(2)+')'); }
+   star(-R*.62,0,R*.030,'rgba(255,214,140,.55)');
+   star( R*.62,R*.14,R*.020,'rgba(255,140,110,.5)');
+   ctx.setLineDash([3,6]); line(-R*.62,0,R*.62,R*.14,'rgba(140,165,205,.3)',1); ctx.setLineDash([]);
+   const p=(t*.28)%1, x=-R*.62+p*R*1.24, y=p*R*.14;
+   glow(x,y,R*.05,'rgba(100,216,208,.6)');
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(100,216,208,.75)'; ctx.textAlign='center';
+   ctx.fillText('4.24 ly', 0, -R*.14);
+ }},
+
+{e:19,name:'Star cluster',size:'~10¹⁸ m',
+ note:'Stars are born in groups from collapsing clouds of gas and dust. The Pleiades span about 1.2 × 10¹⁸ m and its hot blue stars still light the gas they formed from. On this scale the Sun\u2019s whole planetary system is a point.',
+ draw(R,t){
+   glow(-R*.2,R*.1,R*.85,'rgba(90,80,190,.20)');
+   glow(R*.3,-R*.2,R*.6,'rgba(190,70,130,.16)');
+   for(let k=0;k<7;k++){ const a=rnd(k)*TAU, rr=rnd(k+5)*R*.7;
+     glow(Math.cos(a)*rr,Math.sin(a)*rr,R*(.2+rnd(k+2)*.3),'rgba(70,110,200,.12)'); }
+   const S2=scatter(34,60);
+   S2.forEach((p,i)=>{
+     const x=p[0]*R*.75, y=p[1]*R*.68, tw=.7+.3*Math.sin(t*2+i*1.7);
+     star(x,y,R*(.006+p[2]*.012), i%4? 'rgba(170,200,255,'+(.5*tw).toFixed(2)+')' : 'rgba(255,220,180,'+(.5*tw).toFixed(2)+')');
+   });
+ }},
+
+{e:21,name:'The Galaxy',size:'~1 × 10²¹ m',
+ note:'The Milky Way\u2019s disc is about 100 000 light-years across and holds a few hundred billion stars, with a black hole of 4 million solar masses at the centre. The Sun takes 230 million years to go round once.',
+ draw(R,t){
+   ctx.save(); ctx.rotate(t*.05); ctx.scale(1,.42);
+   glow(0,0,R*.9,'rgba(120,140,255,.10)');
+   for(let arm=0;arm<4;arm++){
+     for(let k=0;k<170;k++){
+       const u=k/170, a=arm*TAU/4+u*2.6+rnd(arm*200+k)*.3;
+       const rr=R*(.10+u*.82)*(1+(rnd(arm*300+k)-.5)*.14);
+       const x=Math.cos(a)*rr, y=Math.sin(a)*rr;
+       const c1=rnd(arm*400+k);
+       dot(x,y,R*(.004+c1*.008), c1>.86?'rgba(180,210,255,.85)':'rgba(210,220,250,'+(.12+.28*c1).toFixed(2)+')');
+     }
+   }
+   for(let k=0;k<200;k++){ const a=rnd(k+900)*TAU, rr=Math.sqrt(rnd(k+901))*R*.30;
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,R*.005,'rgba(255,225,180,.5)'); }
+   ctx.restore();
+   glow(0,0,R*.34,'rgba(255,220,160,.30)');
+   glow(0,0,R*.14,'rgba(255,240,210,.5)');
+ }},
+
+{e:22,name:'Local Group',size:'~3 × 10²² m',
+ note:'Two large spirals — the Milky Way and Andromeda, 2.5 million light-years apart — plus some eighty dwarf galaxies. Andromeda is approaching at 110 km s⁻¹; the two will merge in about 4 billion years.',
+ draw(R,t){
+   ctx.save(); ctx.translate(-R*.42,R*.18); ctx.rotate(.4); ctx.scale(1,.4);
+   for(let k=0;k<180;k++){ const u=rnd(k), a=(k%3)*2.09+u*2.6, rr=R*(.05+u*.30);
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,R*.005,'rgba(200,215,250,'+(.2+.4*rnd(k+2)).toFixed(2)+')'); }
+   ctx.restore(); glow(-R*.42,R*.18,R*.13,'rgba(255,225,175,.35)');
+   ctx.save(); ctx.translate(R*.40,-R*.22); ctx.rotate(-.25); ctx.scale(1,.34);
+   for(let k=0;k<230;k++){ const u=rnd(k+50), a=(k%2)*Math.PI+u*2.9, rr=R*(.05+u*.42);
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,R*.005,'rgba(205,220,255,'+(.2+.4*rnd(k+60)).toFixed(2)+')'); }
+   ctx.restore(); glow(R*.40,-R*.22,R*.17,'rgba(255,230,190,.35)');
+   for(let k=0;k<14;k++){ const a=rnd(k+300)*TAU, rr=(.3+rnd(k+310)*.7)*R*.9;
+     glow(Math.cos(a)*rr,Math.sin(a)*rr,R*.035,'rgba(200,210,255,.25)'); }
+   const p=(Math.sin(t*.6)*.5+.5)*.06;
+   line(-R*.42+R*.16,R*.18-R*.08, R*.40-R*.20-p*R, -R*.22+R*.10,'rgba(100,216,208,.3)',1);
+ }},
+
+{e:23,name:'Galaxy cluster',size:'~1.4 × 10²³ m',
+ note:'The Virgo Cluster holds well over a thousand galaxies inside 15 million light-years, bound by gravity and filled with X-ray hot gas. Galaxies orbit far too fast for their visible mass — the original evidence for dark matter.',
+ draw(R,t){
+   glow(0,0,R*.95,'rgba(120,100,220,.10)');
+   glow(R*.05,-R*.05,R*.5,'rgba(150,120,230,.12)');
+   const G=scatter(46,120);
+   G.forEach((p,i)=>{
+     const x=p[0]*R*.86, y=p[1]*R*.80, s=R*(.012+p[2]*.05), rot=rnd(i+3)*3;
+     if(rnd(i+9)>.55){ ell(x,y,s,s*(.3+rnd(i)*.4),rot,'rgba(230,225,255,'+(.25+.3*p[2]).toFixed(2)+')'); }
+     else { glow(x,y,s*2.2,'rgba(255,230,200,'+(.18+.2*p[2]).toFixed(2)+')'); dot(x,y,s*.5,'rgba(255,245,225,.6)'); }
+   });
+   glow(0,0,R*.22,'rgba(255,235,210,.35)'); ell(0,0,R*.075,R*.05,.3,'rgba(255,248,235,.75)');
+ }},
+
+{e:25,name:'Cosmic web',size:'~10²⁵ m',
+ note:'On the largest scales matter is not scattered evenly: clusters sit at the nodes of filaments hundreds of millions of light-years long, wrapped around near-empty voids. This structure grew from density ripples of one part in 10⁵ visible in the microwave background.',
+ draw(R,t){
+   const N=11, nodes=[];
+   for(let i=0;i<N;i++){ nodes.push([(rnd(i*3+1)*2-1)*R*.92,(rnd(i*3+2)*2-1)*R*.88, .5+rnd(i*3+3)*.5]); }
+   nodes.forEach((a,i)=>{
+     nodes.forEach((b,j)=>{
+       if(j<=i) return; const d=Math.hypot(a[0]-b[0],a[1]-b[1]);
+       if(d>R*.85) return;
+       for(let k=0;k<=26;k++){ const u=k/26, x=a[0]+(b[0]-a[0])*u+ (rnd(i*40+j*7+k)-.5)*R*.05,
+         y=a[1]+(b[1]-a[1])*u+(rnd(i*41+j*9+k)-.5)*R*.05;
+         dot(x,y,R*.006,'rgba(190,200,255,'+(.10+.22*rnd(i+j+k)).toFixed(2)+')'); }
+     });
+   });
+   nodes.forEach((n,i)=>{ glow(n[0],n[1],R*.18*n[2],'rgba(255,215,180,'+(.16*n[2]).toFixed(2)+')');
+     dot(n[0],n[1],R*.014*n[2],'rgba(255,240,220,.7)'); });
+ }},
+
+{e:26,name:'Observable universe',size:'8.8 × 10²⁶ m across',
+ note:'Not the edge of the universe — the edge of what light has had time to reach us from in 13.8 billion years. The outermost glow is the cosmic microwave background, released 380 000 years after the Big Bang and stretched by expansion into microwaves at 2.7 K.',
+ draw(R,t){
+   const r=R*.92;
+   for(let k=0;k<260;k++){
+     const a=rnd(k)*TAU, rr=Math.sqrt(rnd(k+5))*r*.86;
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,R*.004,'rgba(200,205,255,'+(.06+.16*rnd(k+2)).toFixed(2)+')');
+   }
+   const g=ctx.createRadialGradient(0,0,r*.55,0,0,r);
+   g.addColorStop(0,'rgba(120,80,200,0)'); g.addColorStop(.72,'rgba(180,70,140,.16)'); g.addColorStop(1,'rgba(255,120,80,.30)');
+   ctx.fillStyle=g; ctx.beginPath(); ctx.arc(0,0,r,0,TAU); ctx.fill();
+   for(let k=0;k<140;k++){
+     const a=rnd(k+70)*TAU, rr=r*(.90+rnd(k+80)*.09), s=.5+.5*Math.sin(t*.6+k);
+     dot(Math.cos(a)*rr,Math.sin(a)*rr,R*(.012+rnd(k+90)*.02),
+        (k%2?'rgba(255,140,90,':'rgba(120,150,255,')+(.10+.14*s).toFixed(2)+')');
+   }
+   ring(0,0,r,'rgba(255,160,110,.45)',1.5);
+   ring(0,0,r*1.03,'rgba(255,160,110,.12)',6);
+   ctx.font='10px ui-monospace,monospace'; ctx.fillStyle='rgba(255,180,130,.75)'; ctx.textAlign='center';
+   ctx.fillText('cosmic microwave background', 0, -r-10);
+   dot(0,0,R*.012,'rgba(255,255,255,.85)');
+   ctx.fillStyle='rgba(180,190,220,.6)'; ctx.fillText('here', 0, R*.07);
+ }}
+];
+
+/* milestones shown as chips (the sequence the brief asks for) */
+const CHIPS = [
+  ['Planck',-35],['Quarks',-19],['Nucleon',-15],['Nucleus',-14],['Atom',-10],['Molecule',-9],
+  ['DNA',-8],['Cell',-5],['Human',0],['Earth',7],['Solar System',13],['Galaxy',21],
+  ['Cluster',23],['Universe',26]
+];
+
+/* ---------- state ---------- */
+let E = 0, playing = false, last = performance.now(), t0 = performance.now();
+const slider = document.getElementById('slider');
+
+/* ---------- canvas sizing ---------- */
+let W=0,H=0,DPR=1;
+function resize(){
+  const r = c.getBoundingClientRect();
+  DPR = Math.min(window.devicePixelRatio||1, 2);
+  W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
+  c.width = W*DPR; c.height = H*DPR;
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+new ResizeObserver(resize).observe(document.getElementById('stage'));
+resize();
+
+/* ---------- background hue follows the physical regime ---------- */
+function bgFor(e){
+  // quantum indigo -> daylight warm -> cosmic violet
+  const stops = [[-35,232,60],[-10,220,45],[0,28,38],[9,34,42],[21,268,42],[26,288,48]];
+  let a=stops[0], b=stops[stops.length-1];
+  for(let i=0;i<stops.length-1;i++){ if(e>=stops[i][0] && e<=stops[i+1][0]){ a=stops[i]; b=stops[i+1]; break; } }
+  const u = (e-a[0])/((b[0]-a[0])||1);
+  let h1=a[1], h2=b[1]; if(Math.abs(h2-h1)>180){ if(h2>h1) h1+=360; else h2+=360; }
+  const h=(h1+(h2-h1)*u+360)%360, s=a[2]+(b[2]-a[2])*u;
+  return [h,s];
+}
+
+/* ---------- frame ---------- */
+function frame(now){
+  const dt = Math.min(.05,(now-last)/1000); last = now;
+  const t = (now-t0)/1000;
+
+  if(playing){
+    E += dt*1.35;
+    if(E>=E_MAX){ E=E_MAX; setPlaying(false); }
+    slider.value = E.toFixed(2); syncReadout();
+  }
+
+  // background
+  const [h,s]=bgFor(E);
+  const g=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*.75);
+  g.addColorStop(0,'hsl('+h.toFixed(0)+' '+s.toFixed(0)+'% 9%)');
+  g.addColorStop(1,'#05060b');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+
+  // pick the bracketing scenes
+  let i=0; while(i<S.length-2 && S[i+1].e<=E) i++;
+  const A=S[i], B=S[i+1], gap=B.e-A.e;
+  const u=Math.min(1,Math.max(0,(E-A.e)/gap));
+  const sm=x=>x*x*(3-2*x);
+  const R = Math.min(W,H)*0.40;
+
+  drawScene(A, Math.pow(6,-u), sm(1-u), R, t);
+  drawScene(B, Math.pow(6,1-u), sm(u), R, t);
+
+  // frame reticle
+  ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
+  ctx.strokeRect(W/2-R*1.02,H/2-R*1.02,R*2.04,R*2.04);
+
+  requestAnimationFrame(frame);
+}
+function drawScene(sc,scale,alpha,R,t){
+  if(alpha<=0.004) return;
+  ctx.save(); ctx.translate(W/2,H/2); ctx.scale(scale,scale);
+  ctx.globalAlpha=alpha; ctx.lineCap='butt'; ctx.textAlign='center';
+  try{ sc.draw(R,t); }catch(err){ /* keep the loop alive */ }
+  ctx.restore(); ctx.globalAlpha=1;
+}
+
+/* ---------- readouts ---------- */
+const PRE=[[30,'quetta','Q'],[27,'ronna','R'],[24,'yotta','Y'],[21,'zetta','Z'],[18,'exa','E'],[15,'peta','P'],
+[12,'tera','T'],[9,'giga','G'],[6,'mega','M'],[3,'kilo','k'],[0,'','' ],[-3,'milli','m'],[-6,'micro','µ'],
+[-9,'nano','n'],[-12,'pico','p'],[-15,'femto','f'],[-18,'atto','a'],[-21,'zepto','z'],[-24,'yocto','y'],
+[-27,'ronto','r'],[-30,'quecto','q']];
+const SUP={'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+const sup = n => String(n).split('').map(ch=>SUP[ch]||ch).join('');
+
+const el = id => document.getElementById(id);
+let lastName='';
+function syncReadout(){
+  const exp=Math.floor(E+1e-9), man=Math.pow(10,E-exp);
+  el('fovV').innerHTML = (man<1.05?'':man.toFixed(1)+' × ')+'10<sup>'+exp+'</sup> m';
+  // words with SI prefix
+  const k = Math.floor(exp/3)*3, p = PRE.find(x=>x[0]===k);
+  if(p){ const v=Math.pow(10,E-k); el('fovW').textContent = (v<10?v.toFixed(1):Math.round(v)) + ' ' + (p[1]?p[1]+'metres':'metres'); }
+  else el('fovW').textContent = 'beyond the SI prefixes';
+
+  // nearest labelled scene
+  let best=S[0], bd=1e9;
+  S.forEach(sc=>{ const d=Math.abs(sc.e-E); if(d<bd){ bd=d; best=sc; } });
+  if(best.name!==lastName){
+    lastName=best.name;
+    el('cIdx').textContent='10'+sup(best.e)+' m';
+    el('cName').textContent=best.name;
+    el('cSize').textContent=best.size;
+    el('cNote').textContent=best.note;
+  }
+  document.querySelectorAll('.chip').forEach(b=>{
+    b.setAttribute('aria-current', Math.abs(+b.dataset.e - E) < .5 ? 'true' : 'false');
+  });
+  document.querySelectorAll('#ticks i').forEach(m=>{
+    m.classList.toggle('hit', Math.abs(+m.dataset.e - E) < .5);
+  });
+}
+
+/* ---------- rail furniture ---------- */
+const ticksEl=el('ticks');
+for(let e=E_MIN;e<=E_MAX;e++){
+  const i=document.createElement('i');
+  i.style.left=((e-E_MIN)/(E_MAX-E_MIN)*100)+'%';
+  i.dataset.e=e;
+  if(e%5===0||e===E_MAX) i.classList.add('maj');
+  ticksEl.appendChild(i);
+  if(e%10===0||e===E_MIN||e===E_MAX){
+    const b=document.createElement('b');
+    b.style.left=((e-E_MIN)/(E_MAX-E_MIN)*100)+'%';
+    b.textContent='10'+sup(e);
+    ticksEl.appendChild(b);
+  }
+}
+const chipsEl=el('chips');
+CHIPS.forEach(([label,e])=>{
+  const b=document.createElement('button');
+  b.className='chip'; b.textContent=label; b.dataset.e=e;
+  b.addEventListener('click',()=>{ setE(e); setPlaying(false); });
+  chipsEl.appendChild(b);
+});
+
+/* ---------- interaction ---------- */
+function setE(v){ E=Math.min(E_MAX,Math.max(E_MIN,v)); slider.value=E.toFixed(2); syncReadout(); }
+function setPlaying(p){
+  playing=p;
+  el('play').textContent = p ? '❚❚ Pause' : (E>=E_MAX ? '↺ Restart' : '▶ Zoom out');
+}
+slider.addEventListener('input',()=>{ E=parseFloat(slider.value); setPlaying(false); syncReadout(); });
+el('play').addEventListener('click',()=>{ if(E>=E_MAX) setE(E_MIN); setPlaying(!playing); });
+function step(dir){
+  setPlaying(false);
+  const list=S.map(s=>s.e);
+  const target = dir>0 ? list.find(e=>e>E+.05) : [...list].reverse().find(e=>e<E-.05);
+  if(target!==undefined) setE(target);
+}
+el('prev').addEventListener('click',()=>step(-1));
+el('next').addEventListener('click',()=>step(1));
+window.addEventListener('keydown',ev=>{
+  const ta=ev.target; if(ta&&ta.tagName==='INPUT'&&ta.type!=='range') return;
+  if(ev.key==='ArrowRight'){ ev.preventDefault(); ev.shiftKey?step(1):(setPlaying(false),setE(E+.5)); }
+  else if(ev.key==='ArrowLeft'){ ev.preventDefault(); ev.shiftKey?step(-1):(setPlaying(false),setE(E-.5)); }
+  else if(ev.key===' '){ ev.preventDefault(); if(E>=E_MAX) setE(E_MIN); setPlaying(!playing); }
+  else if(ev.key==='Escape') el('notes').classList.remove('on');
+});
+el('notesBtn').addEventListener('click',()=>el('notes').classList.add('on'));
+el('notesClose').addEventListener('click',()=>el('notes').classList.remove('on'));
+el('notes').addEventListener('click',ev=>{ if(ev.target.id==='notes') el('notes').classList.remove('on'); });
+
+if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) playing=false;
+setE(0); setPlaying(false);
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
