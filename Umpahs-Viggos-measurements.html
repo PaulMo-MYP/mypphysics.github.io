@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umpah–Viggo Bench · measurement &amp; uncertainty practice</title>
+<style>
+:root{
+  --bench:#262b31;
+  --bench-dark:#1b1f24;
+  --case:#3a424b;
+  --case-edge:#525c67;
+  --dial:#f3efe4;
+  --dial-line:#2a2723;
+  --needle:#b03a2c;
+  --lcd:#a3b294;
+  --lcd-ink:#171d10;
+  --ink:#e8e6e0;
+  --ink-dim:#a3a8ae;
+  --paper:#fbfaf6;
+  --paper-ink:#22252a;
+  --teal:#49a89f;
+  --amber:#e2a63c;
+  --good:#5fb87a;
+  --bad:#e0705e;
+  --sans:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bench);
+  background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.014) 0 2px,transparent 2px 7px);
+  color:var(--ink);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:28px 20px 72px}
+
+/* ---- masthead ---- */
+header.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;padding-bottom:18px;border-bottom:1px solid #414951;margin-bottom:26px}
+header.top h1{font-size:26px;font-weight:600;letter-spacing:-.015em;margin:0}
+header.top p{margin:0;color:var(--ink-dim);font-size:14.5px;max-width:62ch}
+
+/* ---- the bench ---- */
+.bench{display:grid;grid-template-columns:1.55fr 1fr;gap:18px}
+.case{
+  background:linear-gradient(178deg,var(--case-edge),var(--case) 14%,var(--case) 86%,#2f363e);
+  border-radius:10px;
+  padding:14px 14px 10px;
+  box-shadow:0 14px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.13);
+}
+.case-plate{
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
+  font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#aeb6c0;margin-bottom:10px
+}
+.case-plate .screws{letter-spacing:0;color:#79838f}
+.dialface{background:var(--dial);border-radius:6px;padding:4px 6px 0;box-shadow:inset 0 2px 8px rgba(0,0,0,.28)}
+svg.meter{display:block;width:100%;height:auto}
+.needle{transition:transform .45s cubic-bezier(.22,.9,.3,1)}
+@media (prefers-reduced-motion:reduce){.needle{transition:none}}
+
+.lcd{
+  background:var(--lcd);
+  border-radius:5px;
+  padding:16px 16px 10px;
+  box-shadow:inset 0 3px 10px rgba(0,0,0,.32);
+  min-height:150px;display:flex;flex-direction:column;justify-content:center;
+}
+.lcd .digits{
+  font-family:"SF Mono",Menlo,Consolas,monospace;
+  font-size:clamp(44px,7.4vw,74px);line-height:1;font-weight:700;
+  color:var(--lcd-ink);text-align:right;letter-spacing:.03em;
+  font-variant-numeric:tabular-nums;
+}
+.lcd .digits .ghost{opacity:.13}
+.lcd .unit{text-align:right;color:#3b452f;font-size:15px;margin-top:6px;letter-spacing:.08em}
+.lcd .bar{display:flex;justify-content:space-between;font-size:10.5px;color:#4b563d;margin-top:12px;letter-spacing:.06em}
+
+/* ---- control rail ---- */
+.rail{
+  margin-top:18px;background:var(--bench-dark);border:1px solid #383f47;border-radius:10px;
+  padding:16px 18px;display:grid;grid-template-columns:1fr auto;gap:16px 26px;align-items:center
+}
+.rail label.sliderlab{display:block;font-size:13px;color:var(--ink-dim);margin-bottom:7px}
+input[type=range]{width:100%;accent-color:var(--amber);height:26px}
+.rail .knobs{display:flex;flex-wrap:wrap;gap:8px}
+button{
+  font:inherit;font-size:14px;color:var(--ink);background:#39414a;border:1px solid #4d5761;
+  border-radius:6px;padding:8px 13px;cursor:pointer
+}
+button:hover{background:#434c57}
+button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+button.primary{background:var(--teal);border-color:#5cbdb3;color:#08201e;font-weight:600}
+button.primary:hover{background:#57b8ae}
+button[aria-pressed=true]{background:var(--amber);border-color:#f0bc5c;color:#2b1e04;font-weight:600}
+button.small{padding:5px 9px;font-size:12.5px}
+.standard-flag{grid-column:1/-1;background:#4a3c14;border:1px solid var(--amber);color:#f5dfae;
+  border-radius:6px;padding:9px 12px;font-size:13.5px}
+
+/* ---- tabs ---- */
+nav.tabs{display:flex;gap:4px;margin:30px 0 0;border-bottom:1px solid #414951}
+nav.tabs button{
+  background:none;border:none;border-bottom:2px solid transparent;border-radius:0;
+  color:var(--ink-dim);padding:10px 15px;font-size:15px
+}
+nav.tabs button[aria-selected=true]{color:var(--ink);border-bottom-color:var(--amber);font-weight:600}
+.panel{display:none;padding-top:24px}
+.panel.on{display:block}
+
+/* ---- reading form ---- */
+.readgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.card{background:#30363d;border:1px solid #414951;border-radius:9px;padding:16px 17px}
+.card h3{margin:0 0 3px;font-size:17px;font-weight:600}
+.card .hint{margin:0 0 14px;font-size:13px;color:var(--ink-dim)}
+.entry{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.entry input{
+  width:104px;font:inherit;background:#1f242a;color:var(--ink);
+  border:1px solid #4d5761;border-radius:5px;padding:8px 10px;font-variant-numeric:tabular-nums
+}
+.entry .pm{color:var(--ink-dim);font-size:17px}
+.entry .u{color:var(--ink-dim);font-size:13.5px}
+.fb{margin-top:12px;font-size:14px;line-height:1.5;min-height:1px}
+.fb p{margin:0 0 6px;padding-left:20px;text-indent:-20px}
+.fb .ok::before{content:"✓ ";color:var(--good);font-weight:700}
+.fb .no::before{content:"✗ ";color:var(--bad);font-weight:700}
+.fb .tip::before{content:"→ ";color:var(--amber);font-weight:700}
+.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px}
+.actions .msg{font-size:13.5px;color:var(--amber)}
+
+/* ---- data ---- */
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:14px}
+caption{text-align:left;font-size:13px;color:var(--ink-dim);padding-bottom:8px}
+th,td{border-bottom:1px solid #414951;padding:7px 10px;text-align:right}
+th{font-weight:600;font-size:12.5px;color:var(--ink-dim);border-bottom-color:#5a636d}
+th:first-child,td:first-child{text-align:left}
+td:last-child,th:last-child{text-align:center;width:34px}
+.datagrid{display:grid;grid-template-columns:minmax(300px,1fr) minmax(340px,1.15fr);gap:24px;align-items:start}
+.empty{color:var(--ink-dim);font-size:14px;background:#30363d;border:1px dashed #4d5761;border-radius:8px;padding:18px}
+.results{margin-top:16px;background:#30363d;border:1px solid #414951;border-radius:9px;padding:14px 16px}
+.results dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0;font-size:14.5px}
+.results dt{color:var(--ink-dim)}
+.results dd{margin:0;font-variant-numeric:tabular-nums}
+.opts{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;font-size:13.5px;color:var(--ink-dim)}
+.opts label{display:flex;align-items:center;gap:6px;cursor:pointer}
+input[type=checkbox],input[type=radio]{accent-color:var(--teal);width:15px;height:15px}
+svg.graph{width:100%;height:auto;background:var(--paper);border-radius:8px}
+
+/* ---- notes ---- */
+.notes{font-family:var(--serif);font-size:16px;line-height:1.62;max-width:74ch;color:#ded9cf}
+.notes h3{font-family:var(--sans);font-size:16px;letter-spacing:.01em;margin:26px 0 8px;color:var(--ink)}
+.notes h3:first-child{margin-top:0}
+.notes p,.notes li{margin:0 0 10px}
+.notes ol,.notes ul{padding-left:22px}
+.notes code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:14px;background:#30363d;padding:1px 5px;border-radius:4px}
+details.reveal{margin-top:26px;background:#30363d;border:1px solid #4d5761;border-radius:9px;padding:12px 16px}
+details.reveal summary{font-family:var(--sans);font-size:14.5px;cursor:pointer;color:var(--amber)}
+details.reveal[open] summary{margin-bottom:10px}
+footer{margin-top:44px;padding-top:16px;border-top:1px solid #414951;color:var(--ink-dim);font-size:12.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:900px){
+  .bench{grid-template-columns:1fr}
+  .readgrid,.datagrid{grid-template-columns:1fr}
+  .rail{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>Umpah–Viggo bench</h1>
+  <p>Set the source, read both meters, quote each reading with its uncertainty, then build a graph and find the relationship between the two quantities.</p>
+</header>
+
+<section class="bench">
+  <div class="case">
+    <div class="case-plate"><span>Umpah meter · type AM-9 · moving coil</span><span class="screws">◉&nbsp;&nbsp;◉</span></div>
+    <div class="dialface">
+      <svg class="meter" viewBox="0 0 720 400" role="img" aria-labelledby="anTitle">
+        <title id="anTitle">Analogue Umpah meter</title>
+        <g id="scaleTicks"></g>
+        <path d="M 85.6 250.1 A 292 292 0 0 1 634.4 250.1" fill="none" stroke="#2a2723" stroke-width="1.6"/>
+        <text x="360" y="196" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="21" fill="#2a2723" letter-spacing="1">Umps</text>
+        <text x="360" y="222" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="#6b665c" letter-spacing="1.6">D.C. 0–10</text>
+        <g class="needle" id="needle">
+          <line x1="360" y1="374" x2="360" y2="72" stroke="#b03a2c" stroke-width="3.2" stroke-linecap="round"/>
+          <polygon points="360,64 355,86 365,86" fill="#b03a2c"/>
+        </g>
+        <circle cx="360" cy="350" r="16" fill="#2a2723"/>
+        <circle cx="360" cy="350" r="6" fill="#8c8579"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="case">
+    <div class="case-plate"><span>Viggo meter · DV-2 · digital</span><span class="screws">◉&nbsp;&nbsp;◉</span></div>
+    <div class="lcd">
+      <div class="digits"><span class="ghost" id="vGhost"></span><span id="vDigits">00</span></div>
+      <div class="unit">Vigs</div>
+      <div class="bar"><span>range 1–100</span><span id="lcdMode">steps of 2</span></div>
+    </div>
+  </div>
+</section>
+
+<div class="rail">
+  <div>
+    <label class="sliderlab" for="src">Source output <span id="setPct">42%</span> — the true Umpah value is not shown anywhere</label>
+    <input type="range" id="src" min="0" max="1000" value="420" aria-describedby="srcHelp">
+    <span class="sr" id="srcHelp">Adjusts the physical quantity fed to both meters.</span>
+  </div>
+  <div class="knobs">
+    <button id="btnStandard" aria-pressed="false">Insert calibration standard</button>
+  </div>
+  <div class="standard-flag" id="stdFlag" hidden>Certified standard fitted: exactly 5.000 ± 0.001 Umps is now entering the Umpah meter. Read the dial and see what it tells you.</div>
+</div>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" id="tabRead" aria-controls="pRead" aria-selected="true">Take a reading</button>
+  <button role="tab" id="tabData" aria-controls="pData" aria-selected="false">Results and graph</button>
+  <button role="tab" id="tabNotes" aria-controls="pNotes" aria-selected="false">How to use this</button>
+</nav>
+
+<section class="panel on" id="pRead" role="tabpanel" aria-labelledby="tabRead">
+  <div class="readgrid">
+    <div class="card">
+      <h3>Umpah meter</h3>
+      <p class="hint">Read the dial as you find it. Do not adjust anything you think might be wrong.</p>
+      <div class="entry">
+        <input id="uVal" type="text" inputmode="decimal" placeholder="reading" aria-label="Umpah reading">
+        <span class="pm">±</span>
+        <input id="uUnc" type="text" inputmode="decimal" placeholder="uncertainty" aria-label="Umpah uncertainty">
+        <span class="u">Umps</span>
+      </div>
+      <div class="fb" id="uFb"></div>
+    </div>
+    <div class="card">
+      <h3>Viggo meter</h3>
+      <p class="hint">Copy the display, then decide what the last digit is worth.</p>
+      <div class="entry">
+        <input id="vVal" type="text" inputmode="decimal" placeholder="reading" aria-label="Viggo reading">
+        <span class="pm">±</span>
+        <input id="vUnc" type="text" inputmode="decimal" placeholder="uncertainty" aria-label="Viggo uncertainty">
+        <span class="u">Vigs</span>
+      </div>
+      <div class="fb" id="vFb"></div>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="primary" id="btnCheck">Check my readings</button>
+    <button id="btnAdd">Add to results table</button>
+    <button id="btnClearEntry" class="small">Clear the boxes</button>
+    <span class="msg" id="addMsg"></span>
+  </div>
+  <div class="opts" style="margin-top:22px">
+    <span>Uncertainty in a digital display:</span>
+    <label><input type="radio" name="conv" value="full" checked> ± one full step (2 Vigs)</label>
+    <label><input type="radio" name="conv" value="half"> ± half a step (1 Vig)</label>
+  </div>
+</section>
+
+<section class="panel" id="pData" role="tabpanel" aria-labelledby="tabData">
+  <div class="datagrid">
+    <div>
+      <div id="tableHolder"><div class="empty">No readings yet. Take a reading, then use “Add to results table”. Six to eight points spread across the whole range make the best graph.</div></div>
+      <div class="actions">
+        <button id="btnCsv" class="small">Download as CSV</button>
+        <button id="btnClearAll" class="small">Clear all results</button>
+      </div>
+    </div>
+    <div>
+      <div class="opts">
+        <label><input type="checkbox" id="optOrigin" checked> Show the origin</label>
+        <label><input type="checkbox" id="optZero"> Subtract 0.20 Umps from every reading</label>
+      </div>
+      <div id="graphHolder"><div class="empty">The graph appears once there are two or more points.</div></div>
+      <div class="results" id="fit" hidden>
+        <dl>
+          <dt>Gradient</dt><dd id="fitM">—</dd>
+          <dt>Intercept</dt><dd id="fitC">—</dd>
+          <dt>Steepest line</dt><dd id="fitMax">—</dd>
+          <dt>Shallowest line</dt><dd id="fitMin">—</dd>
+        </dl>
+        <p style="font-size:13.5px;color:var(--ink-dim);margin:12px 0 0">Gradient and intercept uncertainties come from the steepest and shallowest lines that still pass through the first and last error bars.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="panel" id="pNotes" role="tabpanel" aria-labelledby="tabNotes">
+  <div class="notes">
+    <h3>What the two meters are</h3>
+    <p>The Umpah meter is a moving-coil instrument reading 0 to 10 Umps, with a smallest scale division of 0.1 Umps. Because you can judge where the needle sits <em>between</em> two marks, the usual convention is to quote half a division, so ±0.05 Umps.</p>
+    <p>The Viggo meter is digital, reading 1 to 100 Vigs, and its display changes in steps of 2 Vigs. A digital display cannot show anything between its steps, so the standard IB treatment is ±1 in the last increment — here ±2 Vigs. Half a step is the alternative convention; the toggle on the reading tab lets you compare the two and see how little the final gradient changes.</p>
+
+    <h3>Suggested sequence</h3>
+    <ol>
+      <li>Take a single reading of each meter and check it. Get the number of decimal places right before worrying about anything else.</li>
+      <li>Work out the percentage uncertainty of each reading at a low setting and at a high setting. Which meter limits you, and where?</li>
+      <li>Wind the source right down to zero, so nothing at all is being fed to the meter, and read the dial. Then fit the calibration standard, which supplies exactly 5.000 Umps, and read it again. Describe what you have found in the language of systematic error.</li>
+      <li>Collect six to eight points across the full range, plot Viggos against Umpahs, and find the gradient and intercept with their uncertainties.</li>
+      <li>Predict what the intercept <em>should</em> be if the meter were perfect, compare it with the one you measured, and account for the difference. Then tick the correction box and watch which of the two results moves.</li>
+      <li>Explain to a partner why repeating a reading would do nothing at all about the fault you found in step 3, and what would.</li>
+    </ol>
+
+    <h3>Reading the dial well</h3>
+    <p>Find the two labelled marks the needle lies between, count the small divisions past the lower one, then estimate the last fraction by eye. Keep your line of sight square to the face — looking from the side shifts the apparent position, which is parallax, and it is a genuine source of error in real practicals rather than an excuse for a bad reading.</p>
+
+    <h3>What the graph is really for</h3>
+    <p>A single reading tells you a value. A straight-line graph tells you a relationship, and the intercept is where a constant offset in one variable shows itself. Two experimenters with the same faulty meter will agree with each other perfectly and both be wrong by the same amount; only comparison against something independent — a standard, a theory, another method — exposes it.</p>
+
+    <details class="reveal">
+      <summary>Teacher settings (contains the answers)</summary>
+      <div class="notes" style="font-size:15px">
+        <p>True relationship: <code>V = 6.5 U + 20</code>, applied to the <em>true</em> Umpah value.</p>
+        <p>The Umpah meter carries a zero-calibration error of +0.20 Umps, so every dial reading is 0.20 too high. Students plotting raw readings therefore measure <code>V = 6.5 U<sub>read</sub> + 18.7</code>: the gradient is untouched, and the intercept falls short of 20 by 6.5 × 0.20 = 1.3.</p>
+        <p>Source range: true values 0 to 9.80 Umps, so the dial spans 0.2 to 10.0 and the display spans 20 to 84 Vigs. With the slider at zero the dial sits on 0.2, which is the offset shown directly. The calibration standard pins the true value at 5.000, which reads 5.2 on the dial.</p>
+        <p>Reading tolerances: within 0.05 of the true dial position is marked excellent, within 0.1 acceptable. Entering the corrected value instead of the raw one is detected and named.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>Fictional units, fictional instruments, real conventions. Built for IB DP Physics practical work.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+var CFG={
+  uMin:0, uMax:10, uDiv:0.1, uUncExpected:0.05,
+  zeroErr:0.2,
+  vDiv:2,
+  m:6.5, c:20,
+  tMin:0, tMax:9.8,
+  cx:360, cy:350, rNeedlePivotY:350, sweep:70
+};
+
+var state={setting:0.42, standard:false, conv:"full", data:[], corrected:false, origin:true};
+
+function $(id){return document.getElementById(id);}
+function clamp(v,a,b){return v<a?a:(v>b?b:v);}
+function round(v,dp){var f=Math.pow(10,dp);return Math.round(v*f)/f;}
+function fmt(v,dp){return (Math.abs(v)<5e-13?0:v).toFixed(dp);}
+
+/* ---------- physical model ---------- */
+function trueU(){
+  return state.standard ? 5 : CFG.tMin + state.setting*(CFG.tMax-CFG.tMin);
+}
+function dialU(){ return clamp(trueU()+CFG.zeroErr, CFG.uMin, CFG.uMax); }
+function trueV(){ return CFG.m*trueU()+CFG.c; }
+function dispV(){ return CFG.vDiv*Math.round(trueV()/CFG.vDiv); }
+function digitalUnc(){ return state.conv==="full" ? CFG.vDiv : CFG.vDiv/2; }
+
+/* ---------- analogue dial ---------- */
+function angleFor(u){ return -CFG.sweep + (u-CFG.uMin)/(CFG.uMax-CFG.uMin)*2*CFG.sweep; }
+function ptAt(u,r){
+  var a=angleFor(u)*Math.PI/180;
+  return [CFG.cx+r*Math.sin(a), CFG.cy-r*Math.cos(a)];
+}
+function buildScale(){
+  var g=$("scaleTicks"), out="";
+  for(var i=0;i<=100;i++){
+    var u=CFG.uMin+i/10;
+    var major=(i%10===0), mid=(i%5===0);
+    var rIn=major?258:(mid?268:276);
+    var w=major?2.6:(mid?1.8:1);
+    var p1=ptAt(u,292), p2=ptAt(u,rIn);
+    out+='<line x1="'+p1[0].toFixed(1)+'" y1="'+p1[1].toFixed(1)+'" x2="'+p2[0].toFixed(1)+'" y2="'+p2[1].toFixed(1)+'" stroke="#2a2723" stroke-width="'+w+'"/>';
+    if(major){
+      var lp=ptAt(u,236);
+      out+='<text x="'+lp[0].toFixed(1)+'" y="'+(lp[1]+8).toFixed(1)+'" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="25" fill="#2a2723">'+Math.round(u)+'</text>';
+    }
+  }
+  g.innerHTML=out;
+}
+
+/* ---------- render ---------- */
+function render(){
+  $("needle").setAttribute("transform","rotate("+angleFor(dialU()).toFixed(3)+" "+CFG.cx+" "+CFG.cy+")");
+  var v=dispV();
+  $("vDigits").textContent=String(v);
+  $("vGhost").textContent=v<10?"88":(v<100?"8":"");
+  $("setPct").textContent=state.standard?"held by the standard":(Math.round(state.setting*100)+"%");
+  $("lcdMode").textContent="steps of 2";
+  $("src").disabled=state.standard;
+  $("stdFlag").hidden=!state.standard;
+}
+
+/* ---------- feedback helpers ---------- */
+function line(cls,txt){return '<p class="'+cls+'">'+txt+'</p>';}
+function decimals(s){var m=String(s).trim().match(/\.(\d+)$/);return m?m[1].length:0;}
+function num(s){ if(String(s).trim()==="") return NaN; var n=Number(String(s).trim().replace(/,/g,".")); return isFinite(n)?n:NaN; }
+
+function checkUmpah(){
+  var raw=$("uVal").value, rawU=$("uUnc").value;
+  var v=num(raw), u=num(rawU), d=dialU(), out="";
+  if(isNaN(v)){ $("uFb").innerHTML=line("tip","Type the value the needle is pointing at."); return false; }
+  var err=Math.abs(v-d);
+  if(err<=0.055){
+    out+=line("ok","Reading accepted. The needle is at "+fmt(d,2)+" Umps.");
+  } else if(err<=0.105){
+    out+=line("ok","Within one division — acceptable. The needle is at "+fmt(d,2)+" Umps.");
+  } else if(Math.abs(v-(d-CFG.zeroErr))<=0.08){
+    out+=line("no","That is not what the dial says. You have already taken something off the reading. Record the dial as it stands and deal with any offset later, at the analysis stage.");
+  } else if(err<=0.55){
+    out+=line("no","Out by "+fmt(err,2)+" Umps. Count the small divisions from the labelled mark below the needle.");
+  } else {
+    out+=line("no","Out by "+fmt(err,1)+" Umps. Check which pair of numbered marks the needle sits between.");
+  }
+  var dp=decimals(raw);
+  if(err<=0.105){
+    if(dp===0) out+=line("tip","Give at least one decimal place. Whole Umps throws away the scale you were given.");
+    else if(dp>2) out+=line("tip",fmt(v,dp)+" claims more precision than a 0.1 scale can support. Two decimal places is the limit.");
+  }
+  if(isNaN(u)){
+    out+=line("tip","Now add an uncertainty.");
+  } else if(Math.abs(u-CFG.uUncExpected)<1e-9){
+    out+=line("ok","±0.05 Umps — half the smallest division, which is the convention for a scale you can interpolate.");
+    if(err<=0.105) out+=line("tip","That is "+fmt(100*CFG.uUncExpected/Math.max(v,1e-9),1)+"% of this reading.");
+  } else if(Math.abs(u-0.1)<1e-9){
+    out+=line("tip","±0.1 is a whole division. Defensible if the needle were thick or unsteady, but the expected answer here is half a division, ±0.05 Umps.");
+  } else if(u<=0){
+    out+=line("no","An uncertainty has to be positive. No measurement is exact.");
+  } else if(u<0.05){
+    out+=line("no","±"+fmt(u,3)+" is finer than the scale allows. You cannot resolve better than half a division, ±0.05 Umps.");
+  } else {
+    out+=line("no","±"+fmt(u,2)+" is not it. The smallest division is 0.1 Umps; take half of that.");
+  }
+  $("uFb").innerHTML=out;
+  return err<=0.105;
+}
+
+function checkViggo(){
+  var raw=$("vVal").value, rawU=$("vUnc").value;
+  var v=num(raw), u=num(rawU), d=dispV(), exp=digitalUnc(), out="";
+  if(isNaN(v)){ $("vFb").innerHTML=line("tip","Copy the number from the display."); return false; }
+  if(Math.abs(v-d)<1e-9){
+    out+=line("ok","Matches the display.");
+  } else if(Math.abs(v-d)<=CFG.vDiv){
+    out+=line("no","The display reads "+d+". Read the digits exactly — a digital meter gives you no room to interpolate.");
+  } else {
+    out+=line("no","The display reads "+d+".");
+  }
+  if(decimals(raw)>0) out+=line("tip","Drop the decimal. The meter cannot show anything finer than whole steps of 2.");
+  if(isNaN(u)){
+    out+=line("tip","Now add an uncertainty.");
+  } else if(Math.abs(u-exp)<1e-9){
+    out+=line("ok","±"+fmt(exp,0)+" Vigs, matching the convention you selected.");
+    if(Math.abs(v-d)<1e-9) out+=line("tip","That is "+fmt(100*exp/Math.max(v,1e-9),1)+"% of this reading — compare it with the Umpah meter at the same setting.");
+  } else if(Math.abs(u-1)<1e-9 && state.conv==="full"){
+    out+=line("no","±1 would be right for a display stepping in ones. This one steps in twos, so the last increment is worth 2 Vigs.");
+  } else if(Math.abs(u-2)<1e-9 && state.conv==="half"){
+    out+=line("no","You have picked the half-step convention below, so ±1 Vig is the matching answer.");
+  } else if(u<=0){
+    out+=line("no","An uncertainty has to be positive.");
+  } else {
+    out+=line("no","Not this one. Ask what the smallest change the display can show is worth: "+fmt(exp,0)+" Vigs under the convention you have selected.");
+  }
+  $("vFb").innerHTML=out;
+  return Math.abs(v-d)<1e-9;
+}
+
+/* ---------- data ---------- */
+function addPoint(){
+  var uv=num($("uVal").value), uu=num($("uUnc").value), vv=num($("vVal").value), vu=num($("vUnc").value);
+  if(isNaN(uv)||isNaN(vv)){ $("addMsg").textContent="Fill in both readings first."; return; }
+  if(isNaN(uu)) uu=CFG.uUncExpected;
+  if(isNaN(vu)) vu=digitalUnc();
+  state.data.push({x:uv,dx:Math.abs(uu),y:vv,dy:Math.abs(vu)});
+  $("addMsg").textContent="Added. "+state.data.length+" point"+(state.data.length===1?"":"s")+" stored.";
+  drawTable(); drawGraph();
+}
+function drawTable(){
+  var h=$("tableHolder");
+  if(!state.data.length){
+    h.innerHTML='<div class="empty">No readings yet. Take a reading, then use “Add to results table”. Six to eight points spread across the whole range make the best graph.</div>';
+    return;
+  }
+  var s='<table><caption>Readings as taken from the two meters</caption><thead><tr><th>#</th><th>Umpah / Umps</th><th>± / Umps</th><th>Viggo / Vigs</th><th>± / Vigs</th><th></th></tr></thead><tbody>';
+  state.data.forEach(function(p,i){
+    s+='<tr><td>'+(i+1)+'</td><td>'+fmt(p.x,2)+'</td><td>'+fmt(p.dx,2)+'</td><td>'+fmt(p.y,0)+'</td><td>'+fmt(p.dy,0)+'</td>'+
+       '<td><button class="small" data-del="'+i+'" aria-label="Remove point '+(i+1)+'">×</button></td></tr>';
+  });
+  s+='</tbody></table>';
+  h.innerHTML=s;
+  Array.prototype.forEach.call(h.querySelectorAll("[data-del]"),function(b){
+    b.addEventListener("click",function(){
+      state.data.splice(Number(b.getAttribute("data-del")),1);
+      $("addMsg").textContent=""; drawTable(); drawGraph();
+    });
+  });
+}
+
+/* ---------- analysis ---------- */
+function analyse(){
+  var pts=state.data.map(function(p){
+    return {x:p.x-(state.corrected?CFG.zeroErr:0), dx:p.dx, y:p.y, dy:p.dy};
+  }).sort(function(a,b){return a.x-b.x;});
+  var n=pts.length, sx=0,sy=0,sxx=0,sxy=0;
+  pts.forEach(function(p){ sx+=p.x; sy+=p.y; sxx+=p.x*p.x; sxy+=p.x*p.y; });
+  var den=n*sxx-sx*sx;
+  var m=den===0?NaN:(n*sxy-sx*sy)/den;
+  var c=den===0?NaN:(sy-m*sx)/n;
+  var A=pts[0], B=pts[n-1];
+  var maxG=NaN,minG=NaN,maxC=NaN,minC=NaN;
+  if(n>=2 && (B.x-B.dx)-(A.x+A.dx)>0 && (B.x+B.dx)-(A.x-A.dx)>0){
+    maxG=((B.y+B.dy)-(A.y-A.dy))/((B.x-B.dx)-(A.x+A.dx));
+    maxC=(A.y-A.dy)-maxG*(A.x+A.dx);
+    minG=((B.y-B.dy)-(A.y+A.dy))/((B.x+B.dx)-(A.x-A.dx));
+    minC=(A.y+A.dy)-minG*(A.x-A.dx);
+  }
+  return {pts:pts,n:n,m:m,c:c,maxG:maxG,minG:minG,maxC:maxC,minC:minC,
+          dm:Math.abs(maxG-minG)/2, dc:Math.abs(maxC-minC)/2};
+}
+function niceStep(range,target){
+  var raw=range/target, p=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), n=raw/p;
+  var s = n<1.5?1:(n<3?2:(n<7?5:10));
+  return s*p;
+}
+function drawGraph(){
+  var holder=$("graphHolder"), fitBox=$("fit");
+  if(state.data.length<2){
+    holder.innerHTML='<div class="empty">The graph appears once there are two or more points.</div>';
+    fitBox.hidden=true; return;
+  }
+  var R=analyse(), pts=R.pts;
+  var W=640,H=440,L=66,Rm=18,T=18,Bm=52;
+  var xs=[],ys=[];
+  pts.forEach(function(p){ xs.push(p.x-p.dx,p.x+p.dx); ys.push(p.y-p.dy,p.y+p.dy); });
+  var x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs);
+  var y0=Math.min.apply(null,ys), y1=Math.max.apply(null,ys);
+  if(state.origin){ x0=Math.min(x0,0); y0=Math.min(y0,0); }
+  var padx=(x1-x0)*0.06||1, pady=(y1-y0)*0.08||1;
+  x0-=padx; x1+=padx; y0-=pady; y1+=pady;
+  var sx=function(v){ return L+(v-x0)/(x1-x0)*(W-L-Rm); };
+  var sy=function(v){ return H-Bm-(v-y0)/(y1-y0)*(H-T-Bm); };
+
+  var s='<svg class="graph" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="Graph of Viggos against Umpahs">';
+  s+='<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#fbfaf6"/>';
+  var stepX=niceStep(x1-x0,6), stepY=niceStep(y1-y0,6), t, px, py;
+  for(t=Math.ceil(x0/stepX)*stepX;t<=x1+1e-9;t+=stepX){
+    px=sx(t);
+    s+='<line x1="'+px.toFixed(1)+'" y1="'+T+'" x2="'+px.toFixed(1)+'" y2="'+(H-Bm)+'" stroke="#e2ded2" stroke-width="1"/>';
+    s+='<text x="'+px.toFixed(1)+'" y="'+(H-Bm+18)+'" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="#5b6068">'+fmt(t,stepX<1?1:0)+'</text>';
+  }
+  for(t=Math.ceil(y0/stepY)*stepY;t<=y1+1e-9;t+=stepY){
+    py=sy(t);
+    s+='<line x1="'+L+'" y1="'+py.toFixed(1)+'" x2="'+(W-Rm)+'" y2="'+py.toFixed(1)+'" stroke="#e2ded2" stroke-width="1"/>';
+    s+='<text x="'+(L-9)+'" y="'+(py+4).toFixed(1)+'" text-anchor="end" font-family="Helvetica,Arial,sans-serif" font-size="12" fill="#5b6068">'+fmt(t,stepY<1?1:0)+'</text>';
+  }
+  s+='<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+(H-Bm)+'" stroke="#22252a" stroke-width="1.4"/>';
+  s+='<line x1="'+L+'" y1="'+(H-Bm)+'" x2="'+(W-Rm)+'" y2="'+(H-Bm)+'" stroke="#22252a" stroke-width="1.4"/>';
+  s+='<text x="'+((L+W-Rm)/2)+'" y="'+(H-12)+'" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="#22252a">Umpah reading / Umps'+(state.corrected?" (corrected)":"")+'</text>';
+  s+='<text transform="translate(18 '+((T+H-Bm)/2)+') rotate(-90)" text-anchor="middle" font-family="Helvetica,Arial,sans-serif" font-size="13" fill="#22252a">Viggo reading / Vigs</text>';
+
+  function clipLine(m,c,colour,dash){
+    if(!isFinite(m)) return "";
+    var ax=x0,bx=x1, ay=m*ax+c, by=m*bx+c;
+    return '<line x1="'+sx(ax).toFixed(1)+'" y1="'+sy(ay).toFixed(1)+'" x2="'+sx(bx).toFixed(1)+'" y2="'+sy(by).toFixed(1)+
+           '" stroke="'+colour+'" stroke-width="'+(dash?1.2:1.8)+'"'+(dash?' stroke-dasharray="6 4"':'')+' clip-path="url(#plotclip)"/>';
+  }
+  s+='<defs><clipPath id="plotclip"><rect x="'+L+'" y="'+T+'" width="'+(W-L-Rm)+'" height="'+(H-T-Bm)+'"/></clipPath></defs>';
+  s+=clipLine(R.maxG,R.maxC,"#8a8f98",true);
+  s+=clipLine(R.minG,R.minC,"#8a8f98",true);
+  s+=clipLine(R.m,R.c,"#1d6f68",false);
+
+  pts.forEach(function(p){
+    var X=sx(p.x),Y=sy(p.y),ex=sx(p.x+p.dx)-X,ey=Y-sy(p.y+p.dy);
+    s+='<line x1="'+(X-ex).toFixed(1)+'" y1="'+Y.toFixed(1)+'" x2="'+(X+ex).toFixed(1)+'" y2="'+Y.toFixed(1)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<line x1="'+(X-ex).toFixed(1)+'" y1="'+(Y-3)+'" x2="'+(X-ex).toFixed(1)+'" y2="'+(Y+3)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<line x1="'+(X+ex).toFixed(1)+'" y1="'+(Y-3)+'" x2="'+(X+ex).toFixed(1)+'" y2="'+(Y+3)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<line x1="'+X.toFixed(1)+'" y1="'+(Y-ey).toFixed(1)+'" x2="'+X.toFixed(1)+'" y2="'+(Y+ey).toFixed(1)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<line x1="'+(X-3)+'" y1="'+(Y-ey).toFixed(1)+'" x2="'+(X+3)+'" y2="'+(Y-ey).toFixed(1)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<line x1="'+(X-3)+'" y1="'+(Y+ey).toFixed(1)+'" x2="'+(X+3)+'" y2="'+(Y+ey).toFixed(1)+'" stroke="#b03a2c" stroke-width="1.2"/>';
+    s+='<circle cx="'+X.toFixed(1)+'" cy="'+Y.toFixed(1)+'" r="3.1" fill="#22252a"/>';
+  });
+  s+='</svg>';
+  holder.innerHTML=s;
+
+  fitBox.hidden=false;
+  $("fitM").textContent = isFinite(R.m) ? (fmt(R.m,2)+(isFinite(R.dm)?" ± "+fmt(R.dm,2):"")+" Vigs per Ump") : "not defined";
+  $("fitC").textContent = isFinite(R.c) ? (fmt(R.c,1)+(isFinite(R.dc)?" ± "+fmt(R.dc,1):"")+" Vigs") : "not defined";
+  $("fitMax").textContent = isFinite(R.maxG) ? fmt(R.maxG,2)+" Vigs per Ump, cutting the axis at "+fmt(R.maxC,1) : "needs a wider spread of points";
+  $("fitMin").textContent = isFinite(R.minG) ? fmt(R.minG,2)+" Vigs per Ump, cutting the axis at "+fmt(R.minC,1) : "needs a wider spread of points";
+}
+
+/* ---------- wiring ---------- */
+buildScale();
+
+$("src").addEventListener("input",function(e){
+  state.setting=Number(e.target.value)/1000; render();
+});
+$("btnStandard").addEventListener("click",function(e){
+  state.standard=!state.standard;
+  e.currentTarget.setAttribute("aria-pressed",String(state.standard));
+  e.currentTarget.textContent=state.standard?"Remove calibration standard":"Insert calibration standard";
+  render();
+});
+$("btnCheck").addEventListener("click",function(){ checkUmpah(); checkViggo(); });
+$("btnAdd").addEventListener("click",addPoint);
+$("btnClearEntry").addEventListener("click",function(){
+  ["uVal","uUnc","vVal","vUnc"].forEach(function(id){$(id).value="";});
+  $("uFb").innerHTML=""; $("vFb").innerHTML=""; $("addMsg").textContent="";
+  $("uVal").focus();
+});
+Array.prototype.forEach.call(document.querySelectorAll('input[name=conv]'),function(r){
+  r.addEventListener("change",function(){ state.conv=r.value; if($("vVal").value!=="") checkViggo(); });
+});
+$("optOrigin").addEventListener("change",function(e){ state.origin=e.target.checked; drawGraph(); });
+$("optZero").addEventListener("change",function(e){ state.corrected=e.target.checked; drawGraph(); });
+$("btnClearAll").addEventListener("click",function(){
+  if(!state.data.length) return;
+  state.data=[]; $("addMsg").textContent=""; drawTable(); drawGraph();
+});
+$("btnCsv").addEventListener("click",function(){
+  if(!state.data.length) return;
+  var rows=["Umpah reading / Umps,uncertainty / Umps,Viggo reading / Vigs,uncertainty / Vigs"];
+  state.data.forEach(function(p){ rows.push([fmt(p.x,2),fmt(p.dx,2),fmt(p.y,0),fmt(p.dy,0)].join(",")); });
+  var blob=new Blob([rows.join("\n")],{type:"text/csv"});
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download="umpah-viggo-results.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+});
+
+var tabs=[["tabRead","pRead"],["tabData","pData"],["tabNotes","pNotes"]];
+tabs.forEach(function(t){
+  $(t[0]).addEventListener("click",function(){
+    tabs.forEach(function(o){
+      var on=(o[0]===t[0]);
+      $(o[0]).setAttribute("aria-selected",String(on));
+      $(o[1]).classList.toggle("on",on);
+    });
+  });
+});
+
+["uVal","uUnc","vVal","vUnc"].forEach(function(id){
+  $(id).addEventListener("keydown",function(e){ if(e.key==="Enter"){ checkUmpah(); checkViggo(); } });
+});
+
+render();
+})();
+</script>
+</body>
+</html>
