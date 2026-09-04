@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Millikan Oil-Drop Apparatus — Simulator</title>
+<meta name="description" content="An interactive Millikan oil-drop experiment for IB Diploma Physics: time the drops, balance them against the plate p.d., and extract the elementary charge.">
+<style>
+:root{
+  --chassis:#232a2f;
+  --chassis-dk:#171c20;
+  --panel:#39434a;
+  --panel-hi:#4c5860;
+  --panel-lo:#2c343a;
+  --engrave:#cbd5da;
+  --engrave-dim:#8b979e;
+  --field:#05070a;
+  --reticle:#79d2c3;
+  --drop:#ffeec2;
+  --live:#e2483b;
+  --paper:#f2efe6;
+  --paper-2:#e7e3d7;
+  --ink:#1d2328;
+  --ink-2:#5a6167;
+  --rule:#cbc5b6;
+  --teal:#2f6f62;
+  --amber:#a06a12;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"DejaVu Sans Mono",monospace;
+  --sans:"Helvetica Neue",Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--chassis-dk);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.5;
+}
+.wrap{max-width:1240px;margin:0 auto;padding:0 14px 56px}
+
+/* ---------- nameplate ---------- */
+.nameplate{
+  display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;
+  padding:18px 4px 14px;border-bottom:1px solid #333d44;margin-bottom:18px;
+}
+.nameplate h1{
+  margin:0;font-size:22px;font-weight:600;letter-spacing:.01em;color:var(--engrave);
+}
+.nameplate .model{font-family:var(--mono);font-size:12.5px;color:var(--engrave-dim)}
+.nameplate .sub{flex-basis:100%;font-size:13.5px;color:var(--engrave-dim);max-width:72ch}
+
+/* ---------- layout ---------- */
+.main{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:18px;align-items:start}
+@media (max-width:900px){.main{grid-template-columns:1fr}}
+
+/* ---------- instrument rack ---------- */
+.rack{
+  background:linear-gradient(180deg,var(--panel) 0%,var(--panel-lo) 100%);
+  border:1px solid #10161a;border-radius:5px;
+  box-shadow:inset 0 1px 0 var(--panel-hi),0 8px 22px rgba(0,0,0,.45);
+  padding:14px;color:var(--engrave);
+}
+.bezel{
+  background:var(--chassis-dk);border-radius:4px;padding:9px;
+  box-shadow:inset 0 2px 7px rgba(0,0,0,.85);
+}
+#scope{display:block;width:100%;height:auto;border-radius:2px;background:var(--field)}
+.scope-cap{
+  display:flex;justify-content:space-between;gap:10px;
+  font-family:var(--mono);font-size:11px;color:var(--engrave-dim);margin-top:7px;padding:0 2px;
+}
+.rack h2{
+  font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--engrave-dim);
+  margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid #4a555d;
+}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.grow{flex:1 1 120px}
+
+/* panel controls */
+.pbtn{
+  font:inherit;font-size:13.5px;color:var(--engrave);cursor:pointer;
+  background:linear-gradient(180deg,#57636b,#3c464d);
+  border:1px solid #1b2126;border-radius:3px;padding:8px 12px;
+  box-shadow:inset 0 1px 0 #6d7a83,0 1px 2px rgba(0,0,0,.5);
+}
+.pbtn:hover{background:linear-gradient(180deg,#616e77,#434e56)}
+.pbtn:active{box-shadow:inset 0 2px 4px rgba(0,0,0,.55);transform:translateY(1px)}
+.pbtn.wide{flex:1 1 auto}
+.seg{display:flex;border:1px solid #1b2126;border-radius:3px;overflow:hidden;flex:1 1 100%}
+.seg button{
+  flex:1;font:inherit;font-size:12.5px;color:var(--engrave-dim);cursor:pointer;
+  background:#333c42;border:0;border-right:1px solid #1b2126;padding:9px 4px;
+}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:#5b676f;color:#fff;box-shadow:inset 0 1px 0 #78848c}
+.seg button:hover{color:var(--engrave)}
+
+.readout{
+  font-family:var(--mono);background:#0b1012;color:var(--reticle);
+  border:1px solid #0a0e10;border-radius:3px;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.8);
+  padding:7px 10px;text-align:right;
+}
+.readout.big{font-size:30px;letter-spacing:.02em;padding:10px 12px}
+.readout .u{font-size:.5em;color:var(--engrave-dim);margin-left:6px}
+.lamp{
+  display:inline-block;width:11px;height:11px;border-radius:50%;
+  background:#5b1f1a;box-shadow:inset 0 0 3px #000;vertical-align:-1px;margin-right:7px;
+}
+.lamp.on{background:var(--live);box-shadow:0 0 9px var(--live),inset 0 0 2px #ffb0a8}
+.warn{font-size:11.5px;font-family:var(--mono);color:var(--engrave-dim)}
+.warn.hot{color:#f2938a}
+
+input[type=range]{width:100%;accent-color:#8fa0aa;margin:2px 0}
+.numin{
+  font-family:var(--mono);font-size:14px;width:5.5em;text-align:right;
+  background:#0b1012;color:var(--reticle);border:1px solid #0a0e10;border-radius:3px;padding:6px 7px;
+}
+.lbl{font-size:12px;color:var(--engrave-dim)}
+.msg{min-height:1.35em;font-size:12.5px;color:#f0c98a;margin-top:8px}
+
+/* ---------- notebook ---------- */
+.bench{background:var(--paper);border-radius:5px;padding:20px 20px 24px;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.bench h2{font-size:16px;font-weight:600;margin:0 0 4px}
+.bench h2+.hint{margin-top:0}
+.bench section+section{margin-top:26px;padding-top:22px;border-top:1px solid var(--rule)}
+.hint{font-size:13px;color:var(--ink-2);margin:0 0 12px;max-width:74ch}
+.form{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:12px;color:var(--ink-2)}
+.field input,.field select{
+  font-family:var(--mono);font-size:14px;padding:6px 8px;
+  border:1px solid #b3ac9c;border-radius:3px;background:#fbfaf6;color:var(--ink);
+}
+.field input{width:6.5em}
+.field.narrow input{width:5em}
+.ibtn{
+  font:inherit;font-size:13.5px;padding:7px 12px;cursor:pointer;
+  background:#fbfaf6;border:1px solid var(--ink);border-radius:3px;color:var(--ink);
+}
+.ibtn:hover{background:var(--paper-2)}
+.ibtn.primary{background:var(--teal);border-color:var(--teal);color:#fff}
+.ibtn.primary:hover{background:#255a4f}
+.ibtn.mini{font-size:12px;padding:5px 8px}
+.stack{display:flex;gap:8px;flex-wrap:wrap}
+
+.tablewrap{overflow-x:auto;margin-top:14px}
+table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px;white-space:nowrap}
+th,td{padding:6px 9px;text-align:right;border-bottom:1px solid var(--rule)}
+th{font-weight:600;color:var(--ink-2);border-bottom:1.5px solid var(--ink);text-align:right}
+th:first-child,td:first-child,th.l,td.l{text-align:left}
+tbody tr:nth-child(even){background:rgba(0,0,0,.028)}
+td .del{border:0;background:none;color:#a3452f;cursor:pointer;font-size:14px;padding:0 4px;line-height:1}
+.empty{font-family:var(--sans);font-size:13px;color:var(--ink-2);padding:14px 2px}
+
+.result{display:flex;flex-wrap:wrap;gap:10px 30px;align-items:flex-end;margin-bottom:12px}
+.stat .k{font-size:12px;color:var(--ink-2)}
+.stat .v{font-family:var(--mono);font-size:24px;line-height:1.2}
+.stat .v small{font-size:13px;color:var(--ink-2)}
+#plot{display:block;width:100%;height:auto;background:#fbfaf6;border:1px solid var(--rule);border-radius:3px;margin-top:8px}
+
+details{border-top:1px solid var(--rule);padding:12px 0}
+details summary{cursor:pointer;font-weight:600;font-size:14.5px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"+";display:inline-block;width:1.2em;color:var(--teal);font-family:var(--mono)}
+details[open] summary::before{content:"\2212"}
+details .body{padding:10px 0 4px;max-width:76ch;font-size:14px}
+details p{margin:.7em 0}
+.eq{font-family:var(--mono);font-size:13.5px;background:var(--paper-2);border-left:3px solid var(--teal);padding:9px 12px;margin:.8em 0;overflow-x:auto}
+ul{padding-left:1.25em}li{margin:.35em 0}
+kbd{font-family:var(--mono);font-size:11.5px;border:1px solid #b3ac9c;border-bottom-width:2px;border-radius:3px;padding:1px 5px;background:#fbfaf6}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px 16px;margin-top:6px}
+.chk{display:flex;gap:8px;align-items:flex-start;font-size:13.5px;margin:.5em 0}
+.chk input{margin-top:3px}
+footer{color:var(--engrave-dim);font-size:12px;padding:22px 4px 0;max-width:80ch}
+a{color:var(--teal)}
+:focus-visible{outline:2px solid var(--reticle);outline-offset:2px}
+.bench :focus-visible{outline-color:var(--teal)}
+@media print{
+  body{background:#fff}.rack,footer,.noprint{display:none}
+  .main{display:block}.bench{box-shadow:none;background:#fff}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="nameplate">
+  <h1>Millikan oil-drop apparatus</h1>
+  <span class="model">SIM&nbsp;/&nbsp;d&nbsp;=&nbsp;5.00&nbsp;mm&nbsp;/&nbsp;0–600&nbsp;V</span>
+  <p class="sub">Time a drop falling under gravity to find its radius, then use the electric field to find its charge. Repeat for many drops and the charges will not come out at random values.</p>
+</div>
+
+<div class="main">
+
+  <!-- ============ INSTRUMENT ============ -->
+  <div class="rack">
+    <div class="bezel"><canvas id="scope" width="420" height="470"></canvas></div>
+    <div class="scope-cap">
+      <span>field of view 1.20 × 1.50 mm</span>
+      <span id="capDrop">drop 1</span>
+    </div>
+
+    <h2>Chamber</h2>
+    <div class="row">
+      <button class="pbtn wide" id="btnSpray">Spray new drops</button>
+      <button class="pbtn wide" id="btnIonise">Ionise drop</button>
+    </div>
+
+    <h2>High-voltage supply</h2>
+    <div class="row" style="gap:10px">
+      <div class="grow">
+        <div class="readout big"><span id="roV">0</span><span class="u">V</span></div>
+      </div>
+      <div style="flex:0 0 auto">
+        <div class="warn" id="hvWarn"><span class="lamp" id="lampHV"></span>plates off</div>
+      </div>
+    </div>
+    <input type="range" id="slV" min="0" max="600" step="1" value="0" aria-label="Plate potential difference in volts">
+    <div class="row">
+      <button class="pbtn" id="vm10">−10</button>
+      <button class="pbtn" id="vm1">−1</button>
+      <button class="pbtn" id="vp1">+1</button>
+      <button class="pbtn" id="vp10">+10</button>
+      <input class="numin" id="numV" type="number" min="0" max="600" step="1" value="0" aria-label="Plate potential difference, volts">
+    </div>
+    <div class="seg" style="margin-top:10px" role="group" aria-label="Plate polarity">
+      <button id="polUp" aria-pressed="false">Top plate +</button>
+      <button id="polOff" aria-pressed="true">Off</button>
+      <button id="polDn" aria-pressed="false">Top plate −</button>
+    </div>
+
+    <h2>Stopwatch</h2>
+    <div class="readout big"><span id="roT">0.00</span><span class="u">s</span></div>
+    <div class="row" style="margin-top:9px">
+      <button class="pbtn wide" id="swGo">Start</button>
+      <button class="pbtn" id="swZero">Reset</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <span class="lbl">Send reading to</span>
+      <button class="pbtn" id="toFall">fall time</button>
+      <button class="pbtn" id="toRise">field-on time</button>
+    </div>
+    <p class="msg" id="msg" role="status" aria-live="polite"></p>
+  </div>
+
+  <!-- ============ NOTEBOOK ============ -->
+  <div class="bench">
+
+    <section>
+      <h2>Record a measurement</h2>
+      <p class="hint">Time the drop over a whole number of graticule divisions (0.25 mm each). With the field off it falls; with the field on it may rise, and you decide the plate polarity that makes it do so.</p>
+      <div class="form">
+        <div class="field">
+          <label for="inMethod">Method</label>
+          <select id="inMethod">
+            <option value="balance">Balancing (find V that holds it still)</option>
+            <option value="dynamic">Rise and fall (measure both speeds)</option>
+          </select>
+        </div>
+        <div class="field narrow">
+          <label for="inSf">Fall distance</label>
+          <select id="inSf">
+            <option>0.25</option><option>0.50</option><option>0.75</option>
+            <option selected>1.00</option><option>1.25</option><option>1.50</option>
+          </select>
+        </div>
+        <div class="field narrow"><label for="inTf">Fall time / s</label><input id="inTf" type="number" step="0.01" min="0"></div>
+        <div class="field narrow" id="wrapSr" hidden>
+          <label for="inSr">Rise distance</label>
+          <select id="inSr">
+            <option>0.25</option><option selected>0.50</option><option>0.75</option>
+            <option>1.00</option><option>1.25</option><option>1.50</option>
+          </select>
+        </div>
+        <div class="field narrow" id="wrapTr" hidden><label for="inTr">Field-on time / s</label><input id="inTr" type="number" step="0.01" min="0"></div>
+        <div class="field narrow"><label for="inV">p.d. / V</label><input id="inV" type="number" step="0.1" min="0"></div>
+        <div class="field narrow"><label for="inLbl">Drop</label><input id="inLbl" type="text" style="width:4em"></div>
+        <button class="ibtn primary" id="btnAdd">Add to table</button>
+      </div>
+      <p class="chk" id="wrapDown" hidden><input type="checkbox" id="inDown"><label for="inDown">The drop moved <em>downwards</em> while the field was on</label></p>
+    </section>
+
+    <section>
+      <h2>Results</h2>
+      <div class="tablewrap">
+        <table id="tbl">
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <p class="empty" id="tblEmpty">No measurements yet. Time a drop, then add it here.</p>
+      <div class="stack noprint" style="margin-top:12px">
+        <button class="ibtn mini" id="btnCsv">Download CSV</button>
+        <button class="ibtn mini" id="btnClear">Clear table</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Is the charge quantised?</h2>
+      <p class="hint">Each measured charge is plotted below. The ladder shows the multiples of a trial value of the elementary charge — the fitted value is the one that puts every measurement closest to a rung.</p>
+      <div class="result">
+        <div class="stat"><div class="k">Best-fit elementary charge</div><div class="v" id="statE">—</div></div>
+        <div class="stat"><div class="k">Difference from 1.602 × 10⁻¹⁹ C</div><div class="v" id="statErr">—</div></div>
+        <div class="stat"><div class="k">RMS residual</div><div class="v" id="statRms">—</div></div>
+      </div>
+      <div class="form noprint" style="margin-bottom:6px">
+        <div class="field"><label for="inTrial">Trial value / 10⁻¹⁹ C (blank = fitted)</label><input id="inTrial" type="number" step="0.001" placeholder="1.602"></div>
+      </div>
+      <canvas id="plot" width="900" height="430"></canvas>
+    </section>
+
+    <section class="noprint">
+      <details>
+        <summary>How to run the experiment</summary>
+        <div class="body">
+          <p>Work on one drop at a time. The bright drop in the centre is the one you are following; the faint ones are out of focus, as they are in the real apparatus.</p>
+          <ul>
+            <li><strong>Find the radius.</strong> Switch the plates off and time the drop as it falls a whole number of graticule divisions. This gives the terminal speed <span style="font-family:var(--mono)">v↓</span>, and Stokes' law then gives the radius.</li>
+            <li><strong>Find the charge, method 1 (balancing).</strong> Turn the plates on and adjust the p.d. until the drop hangs still, apart from its Brownian jitter. Record that p.d.</li>
+            <li><strong>Find the charge, method 2 (rise and fall).</strong> Set any convenient p.d. that drives the drop upwards, then time it over a known distance. You do not need to balance it.</li>
+            <li><strong>Change the charge.</strong> Ionise the drop to knock electrons on or off, then measure it again. The same drop with a different charge is strong evidence for quantisation.</li>
+            <li><strong>Collect at least 15 to 20 drops</strong> before judging the pattern in the charges.</li>
+          </ul>
+          <p>Which polarity lifts the drop tells you the sign of its charge: a negatively charged drop rises when the top plate is positive.</p>
+          <p>Keyboard: <kbd>N</kbd> new drops · <kbd>I</kbd> ionise · <kbd>Space</kbd> start/stop watch · <kbd>R</kbd> reset watch · <kbd>F</kbd> plates off · <kbd>↑</kbd><kbd>↓</kbd> p.d. ±1 V (with <kbd>Shift</kbd>, ±10 V)</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>The physics behind the readings</summary>
+        <div class="body">
+          <p>A drop reaches terminal speed in about 10 µs, so it is always in force balance to the precision you can measure. With the field off, weight minus upthrust equals the viscous drag given by Stokes' law:</p>
+          <div class="eq">(4/3)πr³(ρ_oil − ρ_air)g = 6πηr·v↓        →   r = √( 9η·v↓ / (2(ρ_oil − ρ_air)g) )</div>
+          <p>With the field on and the drop balanced, the electric force carries the whole effective weight:</p>
+          <div class="eq">q·V/d = (4/3)πr³(ρ_oil − ρ_air)g    →   q = (4/3)πr³(ρ_oil − ρ_air)g·d / V</div>
+          <p>If instead you let it rise at a steady speed <span style="font-family:var(--mono)">v↑</span>, the drag now acts downwards and the two speeds combine neatly:</p>
+          <div class="eq">q·V/d = (4/3)πr³(ρ_oil − ρ_air)g + 6πηr·v↑    →   q = 6πηr(v↓ + v↑)·d / V</div>
+          <p>For the balancing method the charge depends on the timings quite sharply, since q ∝ r³ and r ∝ √v↓:</p>
+          <div class="eq">q ∝ s^(3/2) · t↓^(−3/2) · V^(−1)
+Δq/q = 1.5·(Δs/s) + 1.5·(Δt/t) + ΔV/V</div>
+          <p>A 3% timing error therefore becomes a 4.5% error in the charge, which is why you need many drops rather than one careful one.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Stokes' law and the slip correction</summary>
+        <div class="body">
+          <p>These drops are about a micrometre across and the mean free path in air is about 68 nm, so the air is not quite the smooth continuum Stokes' law assumes. The drop slips between molecules and falls faster than predicted. Cunningham's correction replaces the viscosity with</p>
+          <div class="eq">η_eff = η / (1 + b/(p·r)),   b = 8.20 × 10⁻³ Pa m</div>
+          <p>which is a correction of roughly 8% at r = 1 µm — small, but larger than the scatter in a careful set of readings. Solving for r from a measured v↓ is still exact:</p>
+          <div class="eq">r² + (b/p)·r − r₀² = 0,   where r₀ is the uncorrected Stokes radius</div>
+          <p>The correction is switched off by default in Settings, in both the simulated motion and the analysis, so the two stay consistent. Switching it on in the simulation but leaving it off in the analysis introduces a deliberate systematic error: the drops really do fall faster than Stokes' law says, the analysis attributes that to a larger radius, and the charges come out about 12% high. The measurements look just as tidy as before, and no amount of repetition reveals the fault.</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>What this simulation does and does not model</summary>
+        <div class="body">
+          <ul>
+            <li>Drop inertia is neglected: motion is at terminal speed at all times.</li>
+            <li>Brownian motion is modelled, with D = k_BT/(6πηr). It is the main source of random scatter here, exactly as in the real experiment.</li>
+            <li>The drop's own size on screen is not to scale. A real 1 µm drop is far below the resolution of the microscope and is seen as a point of scattered light.</li>
+            <li>Evaporation, convection currents and temperature drift are not modelled. In a real run these limit how long one drop stays usable.</li>
+            <li>Drops are generated only with radii and charges that can be balanced within 0–600 V, which is what an experimenter does by discarding the rest. It means radius and charge are not fully independent here.</li>
+            <li>The view is not inverted. Most real telescopes invert the image, so a drop seen falling is rising.</li>
+            <li>Charges are exact integer multiples of e, so the only scatter you see comes from measurement, not from the physics.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details>
+        <summary>Historical note, and a question for Theory of Knowledge</summary>
+        <div class="body">
+          <p>Millikan and his student Harvey Fletcher published a value of about 1.592 × 10⁻¹⁹ C in 1913, close to but not within experimental error of the modern figure of 1.602176634 × 10⁻¹⁹ C, which is now exact by definition of the ampere. The discrepancy came mostly from a slightly low value for the viscosity of air.</p>
+          <p>What makes the episode interesting is what happened next. Later measurements crept upwards towards the true value over several decades, rather than scattering around it, which suggests experimenters were reluctant to publish results far from Millikan's. Feynman used this as his example of how a community can take a long time to shake off an authoritative wrong answer.</p>
+          <p>A second question concerns Millikan's own notebooks, which show that he did not publish every drop he measured. Historians of science disagree over whether this was legitimate rejection of runs he had reason to distrust, or selection towards the answer he expected. Both readings are defensible from the same notebooks.</p>
+          <p>Worth asking with your own data: when you discard a reading, what exactly is your criterion, and did you fix it before or after you saw the number?</p>
+        </div>
+      </details>
+
+      <details>
+        <summary>Apparatus settings</summary>
+        <div class="body">
+          <div class="setgrid">
+            <div class="field"><label for="setD">Plate separation d / mm</label><input id="setD" type="number" step="0.01" value="5.00"></div>
+            <div class="field"><label for="setRho">Oil density / kg m⁻³</label><input id="setRho" type="number" step="1" value="860"></div>
+            <div class="field"><label for="setRhoA">Air density / kg m⁻³</label><input id="setRhoA" type="number" step="0.01" value="1.29"></div>
+            <div class="field"><label for="setEta">Air viscosity / Pa s</label><input id="setEta" type="number" step="0.01e-5" value="1.81e-5"></div>
+            <div class="field"><label for="setT">Temperature / K</label><input id="setT" type="number" step="1" value="293"></div>
+            <div class="field"><label for="setP">Pressure / Pa</label><input id="setP" type="number" step="100" value="101325"></div>
+            <div class="field"><label for="setSeed">Session seed</label><input id="setSeed" type="number" step="1" value="1"></div>
+            <div class="field"><label for="setSpeed">Time rate</label>
+              <select id="setSpeed"><option value="0.5">0.5 ×</option><option value="1" selected>1 ×</option><option value="2">2 ×</option><option value="4">4 ×</option></select>
+            </div>
+          </div>
+          <p class="chk"><input type="checkbox" id="setBrown" checked><label for="setBrown">Include Brownian motion</label></p>
+          <p class="chk"><input type="checkbox" id="setPhysSlip"><label for="setPhysSlip">Simulate the drops with the Cunningham slip correction</label></p>
+          <p class="chk"><input type="checkbox" id="setAnaSlip"><label for="setAnaSlip">Apply the slip correction when analysing the table</label></p>
+          <p class="chk"><input type="checkbox" id="setReveal"><label for="setReveal">Teacher view: show each drop's true radius and charge</label></p>
+          <p class="hint" style="margin-top:10px">The seed fixes which drops appear, so a class can be given reproducible but different data sets. It is also read from the page address, for example <span style="font-family:var(--mono)">?seed=27</span>. Changing a setting does not alter rows already in the table; clear it and start again if you change the apparatus.</p>
+        </div>
+      </details>
+    </section>
+  </div>
+</div>
+
+<footer>A teaching simulation, not a substitute for the apparatus. Runs entirely in the browser with no dependencies and stores nothing.</footer>
+</div>
+
+<script>
+(function(){
+"use strict";
+var $=function(i){return document.getElementById(i);};
+
+/* ---------------- constants and apparatus ---------------- */
+var C={g:9.81,e:1.602176634e-19,kB:1.380649e-23,b:8.20e-3};
+var P={d:5.0e-3,rhoOil:860,rhoAir:1.29,eta:1.81e-5,T:293,p:101325,Vmax:600};
+var FOV={h:1.5e-3,w:1.2e-3,div:0.25e-3};
+var VW={x:12,y:12,w:352,h:440,sx:382,sw:26};
+
+var opts={physSlip:false,anaSlip:false,brownian:true,reveal:false,speed:1};
+var S={V:0,pol:0,t:0,drop:null,decoys:[],count:0,seed:1,rng:null,
+       sw:{run:false,t0:0,val:0},rows:[],rowN:0};
+
+/* ---------------- helpers ---------------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^(t>>>7),61|t)^t;return ((t^t>>>14)>>>0)/4294967296;};}
+var gSpare=null;
+function gauss(){
+  if(gSpare!==null){var g=gSpare;gSpare=null;return g;}
+  var u=Math.random();if(u<1e-12)u=1e-12;
+  var v=Math.random(),m=Math.sqrt(-2*Math.log(u));
+  gSpare=m*Math.sin(2*Math.PI*v);return m*Math.cos(2*Math.PI*v);
+}
+function dRho(){return P.rhoOil-P.rhoAir;}
+function wEff(r){return (4/3)*Math.PI*r*r*r*dRho()*C.g;}
+function etaPhys(r){return opts.physSlip?P.eta/(1+C.b/(P.p*r)):P.eta;}
+function fmt(x,n){return Number(x).toFixed(n);}
+function sci(x,n){
+  if(!isFinite(x)||x===0)return "0";
+  var ex=Math.floor(Math.log(Math.abs(x))/Math.LN10);
+  var m=x/Math.pow(10,ex);
+  return m.toFixed(n)+"e"+ex;
+}
+function say(t){$("msg").textContent=t||"";}
+
+/* ---------------- drops ---------------- */
+function newDrop(rng){
+  var r,n,K,nmin,nmax,tries=0;
+  for(;;){
+    r=(0.70+rng()*0.55)*1e-6;
+    K=wEff(r)*P.d/C.e;               /* K = n*V_balance */
+    nmin=Math.max(1,Math.ceil(K/(P.Vmax*0.96)));
+    nmax=Math.min(10,Math.floor(K/110));
+    if(nmax>=nmin){n=nmin+Math.floor(rng()*(nmax-nmin+1));break;}
+    if(++tries>60){n=4;break;}
+  }
+  return {r:r,n:n,q:n*C.e,sign:rng()<0.72?-1:1,
+          y:P.d/2+(rng()-0.5)*FOV.h*0.5,x:(rng()-0.5)*FOV.w*0.5,
+          id:++S.count,lost:false};
+}
+function newDecoy(){
+  var d=newDrop(Math.random);
+  S.count--;                          /* decoys are not numbered */
+  d.y=P.d/2+(Math.random()-0.5)*FOV.h*1.4;
+  d.x=(Math.random()-0.5)*FOV.w*0.95;
+  d.blur=1.2+Math.random()*2.6;
+  return d;
+}
+function spray(){
+  S.drop=newDrop(S.rng);
+  S.decoys=[];for(var i=0;i<5;i++)S.decoys.push(newDecoy());
+  $("capDrop").textContent="drop "+S.drop.id;
+  $("inLbl").value=String(S.drop.id);
+  say("New drops in the chamber.");
+}
+function ionise(){
+  var d=S.drop;if(!d||d.lost){say("No drop to ionise. Spray again.");return;}
+  var K=wEff(d.r)*P.d/C.e,lo=Math.max(1,Math.ceil(K/(P.Vmax*0.96))),hi=Math.min(12,Math.floor(K/100));
+  var tries=0,n=d.n;
+  do{ n=d.n+(Math.random()<0.5?-1:1)*(Math.random()<0.75?1:2); }
+  while((n<lo||n>hi||n===d.n)&&++tries<40);
+  if(tries>=40){say("The X-ray burst missed the drop. Try again.");return;}
+  d.n=n;d.q=n*C.e;
+  say("Charge changed. Measure it again.");
+}
+
+/* ---------------- motion ---------------- */
+function step(d,dt){
+  if(d.lost)return;
+  var eta=etaPhys(d.r),k=6*Math.PI*eta*d.r;
+  var Fdown=wEff(d.r)+d.sign*S.pol*d.q*(S.V/P.d);
+  d.y+=(Fdown/k)*dt;
+  if(opts.brownian){
+    var s=Math.sqrt(2*(C.kB*P.T/k)*dt);
+    d.y+=s*gauss();d.x+=s*gauss();
+  }
+  if(d.x>FOV.w/2)d.x=FOV.w/2;
+  if(d.x<-FOV.w/2)d.x=-FOV.w/2;
+  if(d.y<=0||d.y>=P.d)d.lost=true;
+}
+
+/* ---------------- drawing ---------------- */
+var cv=$("scope"),cx=cv.getContext("2d");
+function fitCanvas(c,w,h){
+  var dpr=window.devicePixelRatio||1;
+  c.width=Math.round(w*dpr);c.height=Math.round(h*dpr);
+  c.style.aspectRatio=w+" / "+h;
+  var g=c.getContext("2d");g.setTransform(dpr,0,0,dpr,0,0);return g;
+}
+function yTop(){return (P.d-FOV.h)/2;}
+function toPx(y){return VW.y+((y-yTop())/FOV.h)*VW.h;}
+
+function draw(){
+  var g=cx,i;
+  g.clearRect(0,0,420,470);
+  g.fillStyle="#05070a";g.fillRect(0,0,420,470);
+
+  /* illuminated field */
+  var rg=g.createRadialGradient(VW.x+VW.w/2,VW.y+VW.h/2,20,VW.x+VW.w/2,VW.y+VW.h/2,VW.w*0.95);
+  rg.addColorStop(0,"#0d1418");rg.addColorStop(1,"#04060a");
+  g.fillStyle=rg;g.fillRect(VW.x,VW.y,VW.w,VW.h);
+
+  /* graticule */
+  g.save();g.beginPath();g.rect(VW.x,VW.y,VW.w,VW.h);g.clip();
+  g.strokeStyle="rgba(121,210,195,0.30)";g.lineWidth=1;
+  g.font="10px ui-monospace,monospace";g.fillStyle="rgba(121,210,195,0.55)";
+  var nDiv=Math.round(FOV.h/FOV.div);
+  for(i=0;i<=nDiv;i++){
+    var yy=Math.round(VW.y+i*VW.h/nDiv)+0.5;
+    g.globalAlpha=(i%2===0)?1:0.55;
+    g.beginPath();g.moveTo(VW.x+6,yy);g.lineTo(VW.x+VW.w-42,yy);g.stroke();
+    if(i%2===0){g.globalAlpha=1;g.fillText((i*FOV.div*1000).toFixed(2),VW.x+VW.w-38,yy+3.5);}
+  }
+  g.globalAlpha=1;
+  g.strokeStyle="rgba(121,210,195,0.18)";
+  var xm=Math.round(VW.x+VW.w/2)+0.5;
+  g.beginPath();g.moveTo(xm,VW.y+4);g.lineTo(xm,VW.y+VW.h-4);g.stroke();
+
+  /* decoys then tracked drop */
+  for(i=0;i<S.decoys.length;i++)dot(g,S.decoys[i],false);
+  if(S.drop)dot(g,S.drop,true);
+  g.restore();
+
+  /* border */
+  g.strokeStyle="#1b2429";g.lineWidth=1;g.strokeRect(VW.x+0.5,VW.y+0.5,VW.w-1,VW.h-1);
+
+  /* off-view marker */
+  if(S.drop&&!S.drop.lost){
+    var yp=toPx(S.drop.y);
+    if(yp<VW.y||yp>VW.y+VW.h){
+      var up=yp<VW.y,ay=up?VW.y+14:VW.y+VW.h-14;
+      g.fillStyle="#ffeec2";g.beginPath();
+      g.moveTo(VW.x+VW.w/2,up?ay-9:ay+9);
+      g.lineTo(VW.x+VW.w/2-7,up?ay+3:ay-3);
+      g.lineTo(VW.x+VW.w/2+7,up?ay+3:ay-3);
+      g.closePath();g.fill();
+      g.font="10px ui-monospace,monospace";g.fillStyle="#c8b791";g.textAlign="center";
+      g.fillText("drop off view",VW.x+VW.w/2,up?ay+18:ay-12);g.textAlign="left";
+    }
+  }
+
+  /* gap strip: whole 5 mm between the plates */
+  var sy=VW.y,sh=VW.h;
+  g.fillStyle="#0b1013";g.fillRect(VW.sx,sy,VW.sw,sh);
+  g.fillStyle="#4a555d";g.fillRect(VW.sx,sy-6,VW.sw,5);g.fillRect(VW.sx,sy+sh+1,VW.sw,5);
+  var w0=sy+(yTop()/P.d)*sh,w1=sy+((yTop()+FOV.h)/P.d)*sh;
+  g.strokeStyle="rgba(121,210,195,0.5)";g.strokeRect(VW.sx+0.5,w0,VW.sw-1,w1-w0);
+  if(S.drop&&!S.drop.lost){
+    var py=sy+(S.drop.y/P.d)*sh;
+    g.fillStyle="#ffeec2";g.fillRect(VW.sx+3,py-1,VW.sw-6,2);
+  }
+  g.save();g.translate(VW.sx+VW.sw/2,sy+sh/2);g.rotate(-Math.PI/2);
+  g.font="9px ui-monospace,monospace";g.fillStyle="#5d6a72";g.textAlign="center";
+  g.fillText("plate gap "+(P.d*1000).toFixed(2)+" mm",0,-VW.sw/2-4);g.restore();
+
+  if(S.drop&&S.drop.lost){
+    g.fillStyle="rgba(4,6,10,0.72)";g.fillRect(VW.x,VW.y,VW.w,VW.h);
+    g.fillStyle="#f0c98a";g.font="13px system-ui,sans-serif";g.textAlign="center";
+    g.fillText("Drop reached a plate.",VW.x+VW.w/2,VW.y+VW.h/2-8);
+    g.fillText("Spray new drops to continue.",VW.x+VW.w/2,VW.y+VW.h/2+12);
+    g.textAlign="left";
+  }
+}
+function dot(g,d,main){
+  var px=VW.x+VW.w/2+(d.x/FOV.w)*VW.w,py=toPx(d.y);
+  if(py<VW.y-20||py>VW.y+VW.h+20)return;
+  var base=main?3.4:2.6,rad=base*(0.75+d.r/1.4e-6);
+  var a=main?1:0.32,blur=main?0:(d.blur||2);
+  var gr=g.createRadialGradient(px,py,0,px,py,rad+blur+5);
+  gr.addColorStop(0,"rgba(255,248,230,"+a+")");
+  gr.addColorStop(0.35,"rgba(255,238,194,"+(a*0.75)+")");
+  gr.addColorStop(1,"rgba(255,214,140,0)");
+  g.fillStyle=gr;g.beginPath();g.arc(px,py,rad+blur+5,0,6.2832);g.fill();
+  if(main){g.fillStyle="#fffdf6";g.beginPath();g.arc(px,py,1.6,0,6.2832);g.fill();}
+}
+
+/* ---------------- main loop ---------------- */
+var last=0;
+function frame(now){
+  if(!last)last=now;
+  var dtr=(now-last)/1000;last=now;
+  if(dtr>0.1)dtr=0.1;
+  var dt=dtr*opts.speed;
+  S.t+=dt;
+  if(S.drop)step(S.drop,dt);
+  for(var i=0;i<S.decoys.length;i++){
+    step(S.decoys[i],dt);
+    if(S.decoys[i].lost)S.decoys[i]=newDecoy();
+  }
+  if(S.sw.run)S.sw.val=S.t-S.sw.t0;
+  $("roT").textContent=fmt(S.sw.val,2);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+/* ---------------- analysis ---------------- */
+function analyse(inp){
+  var vf=(inp.sf/1000)/inp.tf;
+  var r0=Math.sqrt(9*P.eta*vf/(2*dRho()*C.g));
+  var r=r0,eta=P.eta;
+  if(opts.anaSlip){
+    var bp=C.b/P.p;
+    r=(-bp+Math.sqrt(bp*bp+4*r0*r0))/2;
+    eta=P.eta/(1+bp/r);
+  }
+  var Fg=(4/3)*Math.PI*r*r*r*dRho()*C.g;
+  var m=(4/3)*Math.PI*r*r*r*P.rhoOil;
+  var q,vr=null;
+  if(inp.method==="balance"){q=Fg*P.d/inp.V;}
+  else{
+    vr=(inp.sr/1000)/inp.tr;
+    q=6*Math.PI*eta*r*(vf+(inp.down?-vr:vr))*P.d/inp.V;
+  }
+  return {vf:vf,vr:vr,r:r,m:m,q:q};
+}
+function fitE(qs){
+  if(qs.length<2)return null;
+  var best=null,et,i,n,ss,ok;
+  for(et=1.00e-19;et<=2.60e-19;et+=2e-23){
+    ss=0;ok=true;
+    for(i=0;i<qs.length;i++){
+      n=Math.round(qs[i]/et);
+      if(n<1||n>24){ok=false;break;}
+      ss+=(qs[i]-n*et)*(qs[i]-n*et);
+    }
+    if(ok&&(!best||ss<best.ss))best={e:et,ss:ss};
+  }
+  if(!best)return null;
+  /* local refinement */
+  var lo=best.e-2e-23,hi=best.e+2e-23;
+  for(et=lo;et<=hi;et+=1e-24){
+    ss=0;ok=true;
+    for(i=0;i<qs.length;i++){
+      n=Math.round(qs[i]/et);
+      if(n<1||n>24){ok=false;break;}
+      ss+=(qs[i]-n*et)*(qs[i]-n*et);
+    }
+    if(ok&&ss<best.ss)best={e:et,ss:ss};
+  }
+  best.rms=Math.sqrt(best.ss/qs.length);
+  return best;
+}
+
+/* ---------------- table ---------------- */
+var COLS=[
+  {k:"n",h:"#",l:true},{k:"lbl",h:"drop",l:true},{k:"meth",h:"method",l:true},
+  {k:"sf",h:"s↓/mm"},{k:"tf",h:"t↓/s"},{k:"vf",h:"v↓/mm s⁻¹"},
+  {k:"sr",h:"s↑/mm"},{k:"tr",h:"t↑/s"},{k:"vr",h:"v↑/mm s⁻¹"},
+  {k:"V",h:"V/V"},{k:"r",h:"r/µm"},{k:"m",h:"m/10⁻¹⁵ kg"},
+  {k:"q",h:"q/10⁻¹⁹ C"},{k:"ne",h:"q/e"}
+];
+var REV=[{k:"tr_r",h:"true r/µm"},{k:"tr_n",h:"true q/e"},{k:"tr_s",h:"sign"}];
+
+function cols(){return opts.reveal?COLS.concat(REV):COLS;}
+function renderTable(){
+  var cs=cols(),th=$("thead"),tb=$("tbody"),i,j,tr,td;
+  th.innerHTML="";
+  for(i=0;i<cs.length;i++){
+    var e=document.createElement("th");
+    e.textContent=cs[i].h;if(cs[i].l)e.className="l";th.appendChild(e);
+  }
+  var last=document.createElement("th");last.className="noprint";th.appendChild(last);
+  tb.innerHTML="";
+  for(i=0;i<S.rows.length;i++){
+    tr=document.createElement("tr");
+    for(j=0;j<cs.length;j++){
+      td=document.createElement("td");
+      var v=S.rows[i][cs[j].k];
+      td.textContent=(v===null||v===undefined)?"—":v;
+      if(cs[j].l)td.className="l";
+      tr.appendChild(td);
+    }
+    td=document.createElement("td");td.className="noprint";
+    var b=document.createElement("button");
+    b.className="del";b.type="button";b.textContent="×";
+    b.title="Delete this row";b.setAttribute("aria-label","Delete row "+S.rows[i].n);
+    (function(idx){b.onclick=function(){S.rows.splice(idx,1);renderTable();renderPlot();};})(i);
+    td.appendChild(b);tr.appendChild(td);
+    tb.appendChild(tr);
+  }
+  $("tblEmpty").hidden=S.rows.length>0;
+  $("tbl").hidden=S.rows.length===0;
+}
+
+function addRow(){
+  var method=$("inMethod").value;
+  var sf=parseFloat($("inSf").value),tf=parseFloat($("inTf").value);
+  var V=parseFloat($("inV").value);
+  var sr=parseFloat($("inSr").value),tr=parseFloat($("inTr").value);
+  var down=$("inDown").checked;
+  if(!(tf>0)){say("Enter the fall time before adding the row.");$("inTf").focus();return;}
+  if(!(V>0)){say("Enter the plate p.d. before adding the row.");$("inV").focus();return;}
+  if(method==="dynamic"&&!(tr>0)){say("Enter the field-on time before adding the row.");$("inTr").focus();return;}
+  var a=analyse({method:method,sf:sf,tf:tf,V:V,sr:sr,tr:tr,down:down});
+  if(!(a.q>0)){say("That gives a negative charge — check which way the drop moved.");return;}
+  var d=S.drop;
+  var row={
+    n:++S.rowN,lbl:$("inLbl").value||"—",
+    meth:method==="balance"?"balance":"rise/fall",
+    sf:fmt(sf,2),tf:fmt(tf,2),vf:fmt(a.vf*1000,4),
+    sr:method==="dynamic"?fmt(sr,2):null,
+    tr:method==="dynamic"?fmt(tr,2):null,
+    vr:method==="dynamic"?fmt((down?-1:1)*a.vr*1000,4):null,
+    V:fmt(V,1),r:fmt(a.r*1e6,3),m:fmt(a.m*1e15,3),
+    q:fmt(a.q*1e19,3),ne:fmt(a.q/C.e,2),
+    tr_r:d?fmt(d.r*1e6,3):"—",tr_n:d?String(d.n):"—",tr_s:d?(d.sign<0?"−":"+"):"—",
+    _q:a.q
+  };
+  S.rows.push(row);
+  $("inTf").value="";$("inTr").value="";
+  renderTable();renderPlot();
+  say("Row "+row.n+" added: q = "+fmt(a.q*1e19,3)+" × 10⁻¹⁹ C.");
+}
+
+/* ---------------- plot ---------------- */
+var pc=$("plot"),px=pc.getContext("2d");
+function renderPlot(){
+  var qs=S.rows.map(function(r){return r._q;});
+  var fit=fitE(qs),trial=parseFloat($("inTrial").value);
+  var eUse=(isFinite(trial)&&trial>0)?trial*1e-19:(fit?fit.e:null);
+  if(fit){
+    $("statE").innerHTML=fmt(fit.e*1e19,3)+" <small>× 10⁻¹⁹ C</small>";
+    var pd=(fit.e-C.e)/C.e*100;
+    $("statErr").innerHTML=(pd>=0?"+":"−")+fmt(Math.abs(pd),2)+" <small>%</small>";
+    $("statRms").innerHTML=fmt(fit.rms*1e19,3)+" <small>× 10⁻¹⁹ C</small>";
+  }else{
+    $("statE").textContent="—";$("statErr").textContent="—";$("statRms").textContent="—";
+  }
+  var W=900,H=430,g=px;
+  g.clearRect(0,0,W,H);g.fillStyle="#fbfaf6";g.fillRect(0,0,W,H);
+  g.font="12px ui-monospace,monospace";
+  if(!qs.length||!eUse){
+    g.fillStyle="#5a6167";g.font="14px system-ui,sans-serif";g.textAlign="center";
+    g.fillText("Add at least two measurements to see the pattern.",W/2,H/2);
+    g.textAlign="left";return;
+  }
+  var qmax=Math.max.apply(null,qs)*1.12,i,x,y;
+  var L=62,R=W-24,T1=34,B1=176,T2=224,B2=H-42;
+
+  /* panel 1: charge spectrum */
+  g.fillStyle="#1d2328";g.font="13px system-ui,sans-serif";
+  g.fillText("Measured charges, against multiples of "+fmt(eUse*1e19,3)+" × 10⁻¹⁹ C",L,20);
+  var sx=function(q){return L+(q/qmax)*(R-L);};
+  g.strokeStyle="#cbc5b6";g.beginPath();g.moveTo(L,B1);g.lineTo(R,B1);g.stroke();
+  var nmax=Math.floor(qmax/eUse);
+  g.font="11px ui-monospace,monospace";
+  for(i=1;i<=nmax;i++){
+    x=sx(i*eUse);
+    g.strokeStyle="rgba(47,111,98,0.55)";g.setLineDash([4,4]);
+    g.beginPath();g.moveTo(x,T1);g.lineTo(x,B1);g.stroke();g.setLineDash([]);
+    g.fillStyle="#2f6f62";g.textAlign="center";g.fillText(String(i)+"e",x,B1+15);g.textAlign="left";
+  }
+  for(i=0;i<qs.length;i++){
+    x=sx(qs[i]);y=T1+14+((i*23)%(B1-T1-26));
+    g.strokeStyle="#a06a12";g.lineWidth=1.5;
+    g.beginPath();g.moveTo(x,y-6);g.lineTo(x,y+6);g.stroke();
+  }
+  g.fillStyle="#5a6167";g.font="11px ui-monospace,monospace";
+  g.fillText("q / C",L,B1+31);
+
+  /* panel 2: q against assigned n */
+  g.fillStyle="#1d2328";g.font="13px system-ui,sans-serif";
+  g.fillText("Charge against the nearest whole number of electrons",L,T2-12);
+  var nHi=Math.max(2,nmax);
+  var gx=function(n){return L+(n/(nHi+0.5))*(R-L);};
+  var gy=function(q){return B2-(q/qmax)*(B2-T2);};
+  g.strokeStyle="#cbc5b6";g.lineWidth=1;
+  g.beginPath();g.moveTo(L,T2);g.lineTo(L,B2);g.lineTo(R,B2);g.stroke();
+  g.strokeStyle="#2f6f62";g.lineWidth=1.5;
+  g.beginPath();g.moveTo(gx(0),gy(0));g.lineTo(gx(nHi+0.4),gy(eUse*(nHi+0.4)));g.stroke();
+  g.font="11px ui-monospace,monospace";g.fillStyle="#5a6167";g.textAlign="center";
+  for(i=1;i<=nHi;i++){g.fillText(String(i),gx(i),B2+15);}
+  g.textAlign="right";
+  for(i=0;i<=4;i++){
+    var qv=qmax*i/4;
+    g.fillText(fmt(qv*1e19,1),L-7,gy(qv)+4);
+    g.strokeStyle="rgba(203,197,182,0.7)";g.beginPath();g.moveTo(L,gy(qv));g.lineTo(R,gy(qv));g.stroke();
+  }
+  g.textAlign="left";
+  g.fillStyle="#a06a12";
+  for(i=0;i<qs.length;i++){
+    var nn=Math.round(qs[i]/eUse);
+    g.beginPath();g.arc(gx(nn),gy(qs[i]),3.6,0,6.2832);g.fill();
+  }
+  g.fillStyle="#5a6167";
+  g.fillText("number of elementary charges",L+(R-L)/2-90,B2+31);
+  g.save();g.translate(16,(T2+B2)/2);g.rotate(-Math.PI/2);
+  g.textAlign="center";g.fillText("q / 10⁻¹⁹ C",0,0);g.restore();
+}
+
+/* ---------------- CSV ---------------- */
+function csv(){
+  var cs=cols(),lines=[],i,j;
+  lines.push("# Millikan oil-drop simulation");
+  lines.push("# d/m,"+P.d+",rho_oil,"+P.rhoOil+",rho_air,"+P.rhoAir+",eta/Pa s,"+P.eta+",T/K,"+P.T+",p/Pa,"+P.p);
+  lines.push("# seed,"+S.seed+",slip in simulation,"+opts.physSlip+",slip in analysis,"+opts.anaSlip+",Brownian,"+opts.brownian);
+  lines.push(cs.map(function(c){return c.h;}).join(","));
+  for(i=0;i<S.rows.length;i++){
+    var out=[];
+    for(j=0;j<cs.length;j++){
+      var v=S.rows[i][cs[j].k];out.push(v===null||v===undefined?"":v);
+    }
+    lines.push(out.join(","));
+  }
+  var blob=new Blob([lines.join("\n")],{type:"text/csv;charset=utf-8"});
+  var u=URL.createObjectURL(blob),a=document.createElement("a");
+  a.href=u;a.download="millikan-data-seed"+S.seed+".csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  setTimeout(function(){URL.revokeObjectURL(u);},1500);
+}
+
+/* ---------------- controls ---------------- */
+function setV(v){
+  v=Math.max(0,Math.min(P.Vmax,Math.round(v*10)/10));
+  S.V=v;$("slV").value=v;$("numV").value=v;$("roV").textContent=fmt(v,0);
+  hv();
+}
+function setPol(p){
+  S.pol=p;
+  $("polUp").setAttribute("aria-pressed",String(p===1));
+  $("polOff").setAttribute("aria-pressed",String(p===0));
+  $("polDn").setAttribute("aria-pressed",String(p===-1));
+  hv();
+}
+function hv(){
+  var live=S.pol!==0&&S.V>0;
+  $("lampHV").className="lamp"+(live?" on":"");
+  $("hvWarn").className="warn"+(live?" hot":"");
+  $("hvWarn").innerHTML='<span class="lamp'+(live?" on":"")+'" id="lampHV"></span>'+
+    (live?(S.pol===1?"top plate positive":"top plate negative"):"plates off");
+}
+function swToggle(){
+  if(S.sw.run){S.sw.run=false;$("swGo").textContent="Start";}
+  else{S.sw.t0=S.t-S.sw.val;S.sw.run=true;$("swGo").textContent="Stop";}
+}
+function swReset(){S.sw.run=false;S.sw.val=0;$("swGo").textContent="Start";$("roT").textContent="0.00";}
+
+function applySettings(){
+  var v;
+  v=parseFloat($("setD").value);if(v>0)P.d=v/1000;
+  v=parseFloat($("setRho").value);if(v>0)P.rhoOil=v;
+  v=parseFloat($("setRhoA").value);if(v>=0)P.rhoAir=v;
+  v=parseFloat($("setEta").value);if(v>0)P.eta=v;
+  v=parseFloat($("setT").value);if(v>0)P.T=v;
+  v=parseFloat($("setP").value);if(v>0)P.p=v;
+  opts.brownian=$("setBrown").checked;
+  opts.physSlip=$("setPhysSlip").checked;
+  opts.anaSlip=$("setAnaSlip").checked;
+  opts.reveal=$("setReveal").checked;
+  opts.speed=parseFloat($("setSpeed").value)||1;
+  var sd=parseInt($("setSeed").value,10);
+  if(isFinite(sd)&&sd!==S.seed){S.seed=sd;S.rng=mulberry32(sd||1);S.count=0;spray();}
+  renderTable();
+}
+function methodUI(){
+  var dyn=$("inMethod").value==="dynamic";
+  $("wrapSr").hidden=!dyn;$("wrapTr").hidden=!dyn;$("wrapDown").hidden=!dyn;
+}
+
+/* ---------------- wiring ---------------- */
+$("btnSpray").onclick=function(){spray();};
+$("btnIonise").onclick=function(){ionise();};
+$("slV").oninput=function(){setV(parseFloat(this.value));};
+$("numV").oninput=function(){setV(parseFloat(this.value)||0);};
+$("vm10").onclick=function(){setV(S.V-10);};
+$("vm1").onclick=function(){setV(S.V-1);};
+$("vp1").onclick=function(){setV(S.V+1);};
+$("vp10").onclick=function(){setV(S.V+10);};
+$("polUp").onclick=function(){setPol(1);};
+$("polOff").onclick=function(){setPol(0);};
+$("polDn").onclick=function(){setPol(-1);};
+$("swGo").onclick=swToggle;
+$("swZero").onclick=swReset;
+$("toFall").onclick=function(){$("inTf").value=fmt(S.sw.val,2);$("inV").value=fmt(S.V,1);say("Fall time copied.");};
+$("toRise").onclick=function(){
+  if($("inMethod").value!=="dynamic"){$("inMethod").value="dynamic";methodUI();}
+  $("inTr").value=fmt(S.sw.val,2);$("inV").value=fmt(S.V,1);say("Field-on time copied.");
+};
+$("inMethod").onchange=methodUI;
+$("btnAdd").onclick=addRow;
+$("btnCsv").onclick=function(){if(!S.rows.length){say("Nothing to download yet.");return;}csv();};
+$("btnClear").onclick=function(){
+  if(!S.rows.length)return;
+  if(confirm("Clear all "+S.rows.length+" rows?")){S.rows=[];S.rowN=0;renderTable();renderPlot();}
+};
+$("inTrial").oninput=renderPlot;
+["setD","setRho","setRhoA","setEta","setT","setP","setSeed","setSpeed",
+ "setBrown","setPhysSlip","setAnaSlip","setReveal"].forEach(function(id){
+  $(id).addEventListener("change",function(){applySettings();renderPlot();});
+});
+document.addEventListener("keydown",function(ev){
+  var t=ev.target.tagName;
+  if(t==="INPUT"||t==="SELECT"||t==="TEXTAREA")return;
+  var k=ev.key.toLowerCase();
+  if(k===" "||ev.code==="Space"){ev.preventDefault();swToggle();}
+  else if(k==="r"){swReset();}
+  else if(k==="n"){spray();}
+  else if(k==="i"){ionise();}
+  else if(k==="f"){setPol(0);}
+  else if(ev.key==="ArrowUp"){ev.preventDefault();setV(S.V+(ev.shiftKey?10:1));}
+  else if(ev.key==="ArrowDown"){ev.preventDefault();setV(S.V-(ev.shiftKey?10:1));}
+});
+
+/* ---------------- start ---------------- */
+(function init(){
+  var m=/[?&]seed=(-?\d+)/.exec(window.location.search);
+  S.seed=m?parseInt(m[1],10):1;
+  $("setSeed").value=S.seed;
+  S.rng=mulberry32(S.seed||1);
+  cx=fitCanvas(cv,420,470);
+  px=fitCanvas(pc,900,430);
+  setV(0);setPol(0);methodUI();
+  spray();say("");
+  renderTable();renderPlot();
+  window.addEventListener("resize",function(){
+    cx=fitCanvas(cv,420,470);px=fitCanvas(pc,900,430);renderPlot();
+  });
+  requestAnimationFrame(frame);
+})();
+})();
+</script>
+</body>
+</html>
