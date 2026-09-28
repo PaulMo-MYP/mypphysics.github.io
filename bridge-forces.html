@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bridge Forces: Compression &amp; Tension</title>
+<meta name="description" content="Interactive simulation of compression and tension in cantilever, truss, arch and suspension bridges.">
+<style>
+  :root{
+    --bg:#f3f5f8; --panel:#ffffff; --ink:#1c2230; --muted:#5a6475; --line:#d9dde4;
+    --comp:#d1342f; --tens:#1f64b3; --react:#1f7a3a; --accent:#1c2230; --zero:#969eaa;
+    color-scheme: light;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:18px 20px 6px;max-width:1280px;margin:0 auto}
+  h1{font-size:1.45rem;margin:0 0 2px;letter-spacing:-.01em}
+  header p{margin:0;color:var(--muted)}
+  .wrap{max-width:1280px;margin:0 auto;padding:10px 20px 30px}
+  .tabs{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 12px}
+  .tabs button{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    padding:8px 16px;border-radius:999px;cursor:pointer}
+  .tabs button[aria-selected="true"]{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:16px;align-items:start}
+  @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px}
+  .stage{position:relative;overflow:hidden;padding:0}
+  canvas{display:block;width:100%;touch-action:none}
+  #tip{position:absolute;pointer-events:none;background:rgba(28,34,48,.94);color:#fff;font-size:13px;line-height:1.35;
+    padding:6px 9px;border-radius:7px;white-space:nowrap;display:none;z-index:2}
+  .legend{display:flex;flex-wrap:wrap;gap:8px 20px;padding:10px 14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .side{padding:14px 16px}
+  .side h2{font-size:.8rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin:14px 0 6px}
+  .side h2:first-child{margin-top:0}
+  label.row{display:flex;justify-content:space-between;align-items:baseline;font-weight:600;margin-top:8px}
+  label.row output{font-weight:700;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  select{width:100%;font:inherit;padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:#fff}
+  .checks label{display:flex;gap:8px;align-items:center;margin:5px 0;cursor:pointer}
+  .btn{font:inherit;font-size:13px;border:1px solid var(--line);background:#fff;border-radius:8px;padding:3px 10px;cursor:pointer;margin-top:4px}
+  #summary{font-size:14px}
+  #summary div{margin:3px 0}
+  #summary .warn{color:#8a4b00;background:#fff4e0;border-radius:6px;padding:5px 8px;margin-top:6px}
+  .t{color:var(--tens);font-weight:700}.c{color:var(--comp);font-weight:700}.g{color:var(--react);font-weight:700}
+  .info{padding:14px 18px;margin-top:16px}
+  .info h3{margin:0 0 6px;font-size:1.05rem}
+  .info p{margin:6px 0}
+  footer{max-width:1280px;margin:0 auto;padding:0 20px 30px;color:var(--muted);font-size:12.5px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Bridge Forces: Compression &amp; Tension</h1>
+  <p>Apply a load to the bridge and see which members are squeezed and which are stretched.</p>
+</header>
+
+<div class="wrap">
+  <div class="tabs" role="tablist" id="tabs">
+    <button role="tab" data-type="cantilever" aria-selected="true">Cantilever</button>
+    <button role="tab" data-type="truss" aria-selected="false">Truss</button>
+    <button role="tab" data-type="arch" aria-selected="false">Arch</button>
+    <button role="tab" data-type="suspension" aria-selected="false">Suspension</button>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="card stage" id="stage">
+        <canvas id="cv" aria-label="Bridge force diagram"></canvas>
+        <div id="tip"></div>
+        <div class="legend">
+          <span><svg width="44" height="12"><line x1="2" y1="6" x2="42" y2="6" stroke="#d1342f" stroke-width="5" opacity=".55"/><path d="M4 6h12M40 6H28" stroke="#a3201c" stroke-width="2"/><path d="M19 6l-6-4v8zM25 6l6-4v8z" fill="#a3201c"/></svg><b style="color:var(--comp)">Compression</b>&nbsp;(squeezed)</span>
+          <span><svg width="44" height="12"><line x1="2" y1="6" x2="42" y2="6" stroke="#1f64b3" stroke-width="5" opacity=".55"/><path d="M19 6H8M25 6h11" stroke="#12447e" stroke-width="2"/><path d="M3 6l6-4v8zM41 6l-6-4v8z" fill="#12447e"/></svg><b style="color:var(--tens)">Tension</b>&nbsp;(stretched)</span>
+          <span><svg width="30" height="12"><line x1="2" y1="6" x2="28" y2="6" stroke="#969eaa" stroke-width="4"/></svg>≈ zero force</span>
+          <span><svg width="16" height="16"><path d="M8 15V5" stroke="#1f7a3a" stroke-width="2"/><path d="M8 1l-4 6h8z" fill="#1f7a3a"/></svg>Support reaction</span>
+          <span>Arrow length ∝ force. Drag the load block to move it.</span>
+        </div>
+      </div>
+
+      <div class="card info" id="info"></div>
+    </div>
+
+    <aside class="card side">
+      <h2>Bridge</h2>
+      <div id="variantWrap"><select id="variant" aria-label="Bridge variant"></select></div>
+
+      <h2>Load</h2>
+      <label class="row" for="load">Point load <output id="loadOut">400 kN</output></label>
+      <input type="range" id="load" min="0" max="1000" step="10" value="400">
+      <label class="row" for="pos">Position <output id="posOut">centre</output></label>
+      <input type="range" id="pos" min="-50" max="50" step="1" value="0">
+      <button class="btn" id="centre">Return to centre</button>
+
+      <h2>Show</h2>
+      <div class="checks">
+        <label><input type="checkbox" id="dead" checked> Self-weight of deck (10 kN/m)</label>
+        <label><input type="checkbox" id="arrows" checked> Force arrows</label>
+        <label><input type="checkbox" id="values"> Force values (kN)</label>
+        <label><input type="checkbox" id="reactions" checked> Support reactions</label>
+        <label><input type="checkbox" id="bending" checked> Bending in decks &amp; ribs</label>
+        <label><input type="checkbox" id="deflect"> Deflected shape (exaggerated)</label>
+      </div>
+
+      <h2>Results</h2>
+      <div id="summary"></div>
+    </aside>
+  </div>
+</div>
+
+<footer>
+  Model: 2D linear-elastic stiffness analysis. Pin-jointed members (truss bars, cables, hangers, columns, towers) carry axial force only;
+  continuous decks and arch ribs are modelled as beams carrying axial force and bending. Steel, E = 200 GPa. Arrows show the forces acting
+  <i>on</i> each member. Values are indicative for teaching, not design. Hover or tap a member for its force.
+</footer>
+
+<noscript><p style="padding:20px">This simulation needs JavaScript enabled.</p></noscript>
+
+<script>
+"use strict";
+/* ============================================================
+   Structural model + solver
+   Units: kN, m.  DOFs per node: u (x), v (y), θ (rotation)
+   ============================================================ */
+const E = 2.0e8;          // kN/m²  (200 GPa)
+const W_DEAD = 10;        // kN/m self-weight on deck
+const LIVE_MAX = 1000;    // kN
+
+function mk(){ return {nodes:[], els:[], sup:{}, sym:{}, deck:[], terrain:[], name:'', info:''}; }
+function node(m,x,y){ m.nodes.push({x,y}); return m.nodes.length-1; }
+function bar(m,i,j,name,A=0.012,kind='bar'){ m.els.push({i,j,kind,EA:E*A,EI:0,name}); }
+function cable(m,i,j,name,A){ bar(m,i,j,name,A,'cable'); }
+function beam(m,i,j,name,A,I,deck=true){ m.els.push({i,j,kind:'beam',EA:E*A,EI:E*I,name,deck}); }
+function pin(m,i,sym='pin'){ m.sup[i]={x:1,y:1}; m.sym[i]=sym; }
+function roller(m,i,sym='roller'){ m.sup[i]={x:0,y:1}; m.sym[i]=sym; }
+function terr(m,type,pts,mirror=false){
+  m.terrain.push({type,pts});
+  if(mirror) m.terrain.push({type,pts:pts.map(([x,y])=>[-x,y])});
+}
+
+function localK(e,L){
+  const k=new Float64Array(36), a=e.EA/L;
+  k[0]=a; k[3]=-a; k[18]=-a; k[21]=a;
+  if(e.T0>0){ const g=e.T0/L; k[7]+=g; k[10]-=g; k[25]-=g; k[28]+=g; } // cable pretension (geometric) stiffness
+  if(e.kind==='beam'){
+    const EI=e.EI, b=12*EI/L**3, c=6*EI/L**2, d=4*EI/L, f=2*EI/L;
+    const s=(r,cc,v)=>{k[r*6+cc]=v;};
+    s(1,1,b); s(1,2,c); s(1,4,-b); s(1,5,c);
+    s(2,1,c); s(2,2,d); s(2,4,-c); s(2,5,f);
+    s(4,1,-b);s(4,2,-c);s(4,4,b); s(4,5,-c);
+    s(5,1,c); s(5,2,f); s(5,4,-c); s(5,5,d);
+  }
+  return k;
+}
+function mul6(A,B){ const C=new Float64Array(36);
+  for(let i=0;i<6;i++)for(let j=0;j<6;j++){let s=0;for(let k=0;k<6;k++)s+=A[i*6+k]*B[k*6+j];C[i*6+j]=s;} return C; }
+function tr6(A){ const C=new Float64Array(36); for(let i=0;i<6;i++)for(let j=0;j<6;j++)C[j*6+i]=A[i*6+j]; return C; }
+function mv6(A,x){ const y=new Float64Array(6); for(let i=0;i<6;i++){let s=0;for(let k=0;k<6;k++)s+=A[i*6+k]*x[k];y[i]=s;} return y; }
+
+function gauss(A,b,n){
+  for(let k=0;k<n;k++){
+    let p=k, mx=Math.abs(A[k*n+k]);
+    for(let i=k+1;i<n;i++){ const v=Math.abs(A[i*n+k]); if(v>mx){mx=v;p=i;} }
+    if(mx<1e-10) throw new Error('Structure is unstable (mechanism)');
+    if(p!==k){ for(let j=k;j<n;j++){const t=A[k*n+j];A[k*n+j]=A[p*n+j];A[p*n+j]=t;} const t=b[k];b[k]=b[p];b[p]=t; }
+    const piv=A[k*n+k];
+    for(let i=k+1;i<n;i++){ const f=A[i*n+k]/piv; if(f===0) continue;
+      for(let j=k;j<n;j++) A[i*n+j]-=f*A[k*n+j]; b[i]-=f*b[k]; }
+  }
+  const x=new Float64Array(n);
+  for(let i=n-1;i>=0;i--){ let s=b[i]; for(let j=i+1;j<n;j++) s-=A[i*n+j]*x[j]; x[i]=s/A[i*n+i]; }
+  return x;
+}
+
+function analyse(m,loads){
+  const n=m.nodes.length, nd=3*n;
+  const K=new Float64Array(nd*nd), F=new Float64Array(nd), data=[];
+  for(const e of m.els){
+    const P=m.nodes[e.i], Q=m.nodes[e.j], dx=Q.x-P.x, dy=Q.y-P.y, L=Math.hypot(dx,dy), c=dx/L, s=dy/L;
+    const T=new Float64Array(36);
+    T[0]=c;T[1]=s;T[6]=-s;T[7]=c;T[14]=1;T[21]=c;T[22]=s;T[27]=-s;T[28]=c;T[35]=1;
+    const k=localK(e,L), kg=mul6(tr6(T),mul6(k,T));
+    const dofs=[3*e.i,3*e.i+1,3*e.i+2,3*e.j,3*e.j+1,3*e.j+2];
+    for(let a=0;a<6;a++)for(let b=0;b<6;b++) K[dofs[a]*nd+dofs[b]]+=kg[a*6+b];
+    data.push({k,T,dofs,c,s});
+  }
+  // negligible rotational spring so pin-jointed nodes are not singular (1 kN·m/rad)
+  for(let i=0;i<n;i++) K[(3*i+2)*nd+3*i+2]+=1;
+  for(const [ni,fx,fy] of loads){ F[3*ni]+=fx; F[3*ni+1]+=fy; }
+  const fixed=new Uint8Array(nd);
+  for(const key in m.sup){ const i=+key, s=m.sup[key]; if(s.x)fixed[3*i]=1; if(s.y)fixed[3*i+1]=1; }
+  const free=[]; for(let g=0;g<nd;g++) if(!fixed[g]) free.push(g);
+  const nf=free.length, A=new Float64Array(nf*nf), b=new Float64Array(nf);
+  for(let r=0;r<nf;r++){ const gr=free[r]; b[r]=F[gr]; for(let c=0;c<nf;c++) A[r*nf+c]=K[gr*nd+free[c]]; }
+  const x=gauss(A,b,nf);
+  const d=new Float64Array(nd); free.forEach((g,r)=>d[g]=x[r]);
+  const el=m.els.map((e,idx)=>{
+    const D=data[idx], dg=D.dofs.map(g=>d[g]), fl=mv6(D.k,mv6(D.T,dg));
+    // N: +tension. M: + sagging (compresses the element's local +y face)
+    return {N:fl[3], M1:-fl[2], M2:fl[5], c:D.c, s:D.s};
+  });
+  const R={};
+  for(const key in m.sup){
+    const i=+key, r={x:0,y:0};
+    for(const comp of [0,1]){ const g=3*i+comp; if(!fixed[g]) continue;
+      let s=-F[g]; for(let j=0;j<nd;j++) s+=K[g*nd+j]*d[j]; if(comp) r.y=s; else r.x=s; }
+    R[i]=r;
+  }
+  return {d,el,R};
+}
+
+function makeLoads(m,live,x,dead){
+  const L=[], D=m.deck, xs=D.map(i=>m.nodes[i].x);
+  if(dead) for(let k=0;k<D.length;k++){
+    const left=k>0?xs[k]-xs[k-1]:0, right=k<D.length-1?xs[k+1]-xs[k]:0;
+    L.push([D[k],0,-W_DEAD*(left+right)/2]);
+  }
+  if(live>0){
+    let k=0; while(k<xs.length-2 && x>xs[k+1]) k++;
+    const t=Math.min(1,Math.max(0,(x-xs[k])/(xs[k+1]-xs[k])));
+    L.push([D[k],0,-live*(1-t)],[D[k+1],0,-live*t]);
+  }
+  return L;
+}
+
+/* ============================================================
+   Bridge definitions
+   ============================================================ */
+function buildCantilever(){
+  const m=mk(); m.name='Cantilever bridge';
+  const xs=[-84,-72,-60,-48,-36,-24,-12];
+  const topY={'-72':8,'-60':16,'-48':24,'-36':16,'-24':8};
+  function side(sg){ // sg = 1 for left, -1 for right (mirror)
+    const X=x=>x*sg, b={}, t={};
+    for(const x of xs) b[x]=node(m,X(x),0);
+    for(const x of [-72,-60,-48,-36,-24]) t[x]=node(m,X(x),topY[x]);
+    for(let k=0;k<6;k++) bar(m,b[xs[k]],b[xs[k+1]], xs[k]<-48?'Anchor arm – bottom chord':'Cantilever arm – bottom chord',0.02);
+    const chain=[b[-84],t[-72],t[-60],t[-48],t[-36],t[-24],b[-12]];
+    for(let k=0;k<6;k++) bar(m,chain[k],chain[k+1], k<3?'Anchor arm – top chord':'Cantilever arm – top chord',0.02);
+    for(const x of [-72,-60,-36,-24]) bar(m,b[x],t[x],'Vertical',0.01);
+    bar(m,b[-48],t[-48],'Tower over pier',0.03);
+    bar(m,t[-60],b[-72],'Diagonal',0.01); bar(m,t[-48],b[-60],'Diagonal',0.01);
+    bar(m,t[-48],b[-36],'Diagonal',0.01); bar(m,t[-36],b[-24],'Diagonal',0.01);
+    const base=node(m,X(-48),-22); bar(m,b[-48],base,'Pier',0.2);
+    pin(m,base,'footing');
+    if(sg>0) pin(m,b[-84],'anchor'); else { m.sup[b[-84]]={x:0,y:1}; m.sym[b[-84]]='anchor'; }
+    return b;
+  }
+  const L=side(1), R=side(-1);
+  const s1=node(m,-6,0), s0=node(m,0,0), s2=node(m,6,0);
+  const sp=[L[-12],s1,s0,s2,R[-12]];
+  for(let k=0;k<4;k++) beam(m,sp[k],sp[k+1],'Suspended span',0.05,0.05);
+  m.deck=[...xs.map(x=>L[x]), s1,s0,s2, ...xs.slice().reverse().map(x=>R[x])];
+  terr(m,'water',[[-80,-15],[80,-15],[80,-22],[-80,-22]]);
+  terr(m,'earth',[[-120,0],[-84,0],[-80,-4],[-68,-22],[-120,-22]],true);
+  terr(m,'earth',[[-120,-22],[120,-22],[120,-27],[-120,-27]]);
+  m.info=`<h3>Cantilever bridge</h3>
+  <p>Each half is a <b>balanced cantilever</b>: a truss arm projecting from a pier, counterbalanced by an anchor arm tied down at the bank.
+  The short central span simply rests on the two arm tips, so a load placed on it is shared between them.</p>
+  <p><b>Look for:</b> the top members are stretched (<span class="t">tension</span> – ties) and the bottom members are squeezed
+  (<span class="c">compression</span> – struts). This is the reverse of a simply supported beam, because a cantilever <i>hogs</i> rather than sags.
+  The piers are in compression, and when the centre is loaded the anchorage has to <i>pull down</i> on the anchor arm. Try moving the load onto an anchor arm and watch the reactions change.</p>
+  <p>This is the principle of Benjamin Baker's famous "human cantilever" model of the Forth Bridge: the men's arms act as ties, the poles as struts, and piles of bricks as the anchorage counterweights.</p>`;
+  return m;
+}
+
+function buildTruss(kind){
+  const m=mk(); m.name={pratt:'Pratt truss',howe:'Howe truss',warren:'Warren truss'}[kind];
+  const a=10, x0=-40, h=kind==='warren'?8.66:10, A=0.012, b=[];
+  for(let i=0;i<=8;i++) b.push(node(m,x0+i*a,0));
+  for(let i=0;i<8;i++) bar(m,b[i],b[i+1],'Bottom chord',A);
+  if(kind==='warren'){
+    const t=[]; for(let i=0;i<8;i++) t.push(node(m,x0+(i+0.5)*a,h));
+    for(let i=0;i<7;i++) bar(m,t[i],t[i+1],'Top chord',A);
+    for(let i=0;i<8;i++){ bar(m,b[i],t[i],'Diagonal',A); bar(m,t[i],b[i+1],'Diagonal',A); }
+  } else {
+    const t=[null]; for(let i=1;i<=7;i++) t[i]=node(m,x0+i*a,h);
+    for(let i=1;i<7;i++) bar(m,t[i],t[i+1],'Top chord',A);
+    bar(m,b[0],t[1],'End post',A); bar(m,b[8],t[7],'End post',A);
+    for(let i=1;i<=7;i++) bar(m,b[i],t[i],'Vertical',A);
+    for(let i=1;i<=3;i++) kind==='pratt' ? bar(m,t[i],b[i+1],'Diagonal',A) : bar(m,b[i],t[i+1],'Diagonal',A);
+    for(let i=4;i<=6;i++) kind==='pratt' ? bar(m,t[i+1],b[i],'Diagonal',A) : bar(m,b[i+1],t[i],'Diagonal',A);
+  }
+  pin(m,b[0]); roller(m,b[8]);
+  m.deck=b;
+  terr(m,'water',[[-38,-9],[38,-9],[38,-14],[-38,-14]]);
+  terr(m,'earth',[[-80,0],[-40,0],[-37,-3],[-31,-14],[-80,-14]],true);
+  terr(m,'earth',[[-80,-14],[80,-14],[80,-18],[-80,-18]]);
+  const variantNote={
+    pratt:'In a <b>Pratt</b> truss the diagonals slope down towards the centre, so under downward loads they are in <span class="t">tension</span> and the verticals are in <span class="c">compression</span>. That suits steel: long slender members are best loaded in tension, where they cannot buckle.',
+    howe:'In a <b>Howe</b> truss the diagonals slope the other way, so they swap to <span class="c">compression</span> and the verticals go into <span class="t">tension</span>. Historically this suited timber diagonals with iron-rod verticals.',
+    warren:'A <b>Warren</b> truss uses only equilateral triangles. Moving outward from the load, the diagonals alternate between <span class="c">compression</span> and <span class="t">tension</span>.'
+  }[kind];
+  m.info=`<h3>${m.name}</h3>
+  <p>A triangle cannot change shape unless one of its sides changes length, so a pin-jointed truss carries loads almost entirely as
+  <b>axial</b> tension and compression in straight members, with very little material.</p>
+  <p><b>Look for:</b> the whole truss behaves like a deep beam that sags. The <b>top chord</b> is in <span class="c">compression</span> and the <b>bottom chord</b> is in
+  <span class="t">tension</span>, and both are largest at mid-span. ${variantNote}</p>
+  <p>Some members show <b>zero force</b> (grey) for particular loads. For example, the centre vertical of the Pratt truss carries nothing when the loads act on the bottom chord.
+  Switch between Pratt, Howe and Warren with the same load.</p>`;
+  return m;
+}
+
+function buildArch(kind){
+  const m=mk();
+  if(kind==='deck'){
+    m.name='Deck arch bridge';
+    const r={}, d={};
+    for(let x=-50;x<=50;x+=10){ r[x]=node(m,x,25*(1-(x/50)**2)); d[x]=node(m,x,28); }
+    for(let x=-50;x<50;x+=10){ beam(m,r[x],r[x+10],'Arch rib',0.5,0.25,false); beam(m,d[x],d[x+10],'Deck',0.3,0.02); }
+    for(let x=-40;x<=40;x+=10) bar(m,r[x],d[x],'Spandrel column',0.02);
+    pin(m,r[-50]); pin(m,r[50]); pin(m,d[-50]); roller(m,d[50]);
+    m.deck=Object.keys(d).map(Number).sort((a,b)=>a-b).map(x=>d[x]);
+    terr(m,'water',[[-48,-3],[48,-3],[48,-8],[-48,-8]]);
+    terr(m,'earth',[[-85,28],[-50,28],[-50,0],[-44,-8],[-85,-8]],true);
+    terr(m,'earth',[[-85,-8],[85,-8],[85,-11],[-85,-11]]);
+  } else {
+    m.name='Tied arch (bowstring) bridge';
+    const d={}, r={};
+    for(let x=-50;x<=50;x+=10) d[x]=node(m,x,0);
+    for(let x=-40;x<=40;x+=10) r[x]=node(m,x,20*(1-(x/50)**2));
+    r[-50]=d[-50]; r[50]=d[50];
+    for(let x=-50;x<50;x+=10){ beam(m,r[x],r[x+10],'Arch rib',0.5,0.25,false); beam(m,d[x],d[x+10],'Deck / tie',0.3,0.02); }
+    for(let x=-40;x<=40;x+=10) cable(m,r[x],d[x],'Hanger',0.004);
+    pin(m,d[-50]); roller(m,d[50]);
+    m.deck=Object.keys(d).map(Number).sort((a,b)=>a-b).map(x=>d[x]);
+    terr(m,'water',[[-46,-7],[46,-7],[46,-12],[-46,-12]]);
+    terr(m,'earth',[[-85,0],[-50,0],[-46,-3],[-40,-12],[-85,-12]],true);
+    terr(m,'earth',[[-85,-12],[85,-12],[85,-15],[-85,-15]]);
+  }
+  m.info = kind==='deck' ? `<h3>Deck arch bridge</h3>
+  <p>The curved <b>arch rib</b> carries the load down to the banks mainly in <span class="c">compression</span>, which is why arches can be built from stone and concrete.
+  Spandrel columns (also in compression) carry the deck loads down onto the rib.</p>
+  <p><b>Look for:</b> an arch pushes <i>outward</i> as well as down, so the springings need large <b>horizontal reactions</b> (the thrust) from the ground (green arrows).
+  With self-weight only, the parabolic rib is almost purely in compression with very little bending, because a parabola is the funicular shape for a load spread evenly along the span.
+  A concentrated load disturbs this and makes the rib bend (coloured edges). Try moving the load towards one quarter-point.</p>`
+  : `<h3>Tied arch (bowstring) bridge</h3>
+  <p>The deck hangs from the arch by <b>hangers</b> in <span class="t">tension</span>, and the arch rib is in <span class="c">compression</span>.
+  The deck is connected to both ends of the arch, so it acts as a <b>tie</b>: it is stretched (<span class="t">tension</span>) and holds in the arch's outward thrust, like the string of a bow.</p>
+  <p><b>Look for:</b> the supports now need only <i>vertical</i> reactions. There is no horizontal thrust on the banks, so this form suits soft ground. Compare with the deck arch.</p>`;
+  return m;
+}
+
+function buildSuspension(){
+  const m=mk(); m.name='Suspension bridge';
+  const d={}, c={};
+  for(let x=-50;x<=50;x+=10) d[x]=node(m,x,0);
+  for(let x=-40;x<=40;x+=10) c[x]=node(m,x,3+27*(x/50)**2);
+  const TL=node(m,-50,30), TR=node(m,50,30), BL=node(m,-50,-20), BR=node(m,50,-20);
+  const AL=node(m,-90,-5), AR=node(m,90,-5);
+  for(let x=-50;x<50;x+=10) beam(m,d[x],d[x+10],'Deck (stiffening girder)',0.3,0.004);
+  const chain=[TL]; for(let x=-40;x<=40;x+=10) chain.push(c[x]); chain.push(TR);
+  for(let k=0;k<chain.length-1;k++) cable(m,chain[k],chain[k+1],'Main cable',0.06);
+  for(let x=-40;x<=40;x+=10) cable(m,c[x],d[x],'Hanger',0.003);
+  bar(m,BL,TL,'Tower',0.8); bar(m,BR,TR,'Tower',0.8);
+  cable(m,TL,AL,'Backstay cable',0.06); cable(m,TR,AR,'Backstay cable',0.06);
+  pin(m,d[-50],'bearing'); roller(m,d[50],'bearing');
+  pin(m,BL,'footing'); pin(m,BR,'footing'); pin(m,AL,'anchor'); pin(m,AR,'anchor');
+  m.deck=Object.keys(d).map(Number).sort((a,b)=>a-b).map(x=>d[x]);
+  terr(m,'water',[[-58,-13],[58,-13],[58,-20],[-58,-20]]);
+  terr(m,'earth',[[-120,0],[-64,0],[-60,-6],[-55,-20],[-120,-20]],true);
+  terr(m,'earth',[[-120,-20],[120,-20],[120,-25],[-120,-25]]);
+  m.info=`<h3>Suspension bridge</h3>
+  <p>The deck hangs from vertical <b>hangers</b>, which hang from the <b>main cables</b>. Both are in <span class="t">tension</span>.
+  The cables pass over the <b>towers</b>, pressing them down into <span class="c">compression</span>, and are then taken back as backstays to
+  <b>anchorages</b> in the ground. The anchorages must resist a large pull (see the reactions).</p>
+  <p><b>Look for:</b> the stiff deck spreads a point load over several hangers. The cable sags into a near-parabola under the evenly spread self-weight.
+  Move the load off-centre: the hangers nearest the load pick up the most, and the tension in the main cable (and so the pull on the anchorages) rises with the load.
+Cables can only pull. The deck's own weight keeps them taut (pre-tensioned), and that tension also stiffens the cable against uneven loads.</p>`;
+  return m;
+}
+
+const VARIANTS={
+  truss:[['pratt','Pratt truss'],['howe','Howe truss'],['warren','Warren truss']],
+  arch:[['deck','Deck arch'],['tied','Tied arch (bowstring)']]
+};
+function build(type,variant){
+  if(type==='cantilever') return buildCantilever();
+  if(type==='truss') return buildTruss(variant||'pratt');
+  if(type==='arch') return buildArch(variant||'deck');
+  return buildSuspension();
+}
+function computeScales(m){
+  if(m.els.some(e=>e.kind==='cable')){
+    const r0=analyse(m,makeLoads(m,0,0,true));
+    m.els.forEach((e,i)=>{ if(e.kind==='cable') e.T0=Math.max(0,r0.el[i].N); });
+  }
+  const r=analyse(m,makeLoads(m,LIVE_MAX,0,true));
+  m.Ns=Math.max(1e-6,...r.el.map(e=>Math.abs(e.N)));
+  m.Ms=Math.max(1e-6,...r.el.map((e,i)=>m.els[i].kind==='beam'?Math.max(Math.abs(e.M1),Math.abs(e.M2)):0));
+  m.Rs=Math.max(1e-6,...Object.values(r.R).flatMap(v=>[Math.abs(v.x),Math.abs(v.y)]));
+  let D=0; for(let i=0;i<m.nodes.length;i++) D=Math.max(D,Math.hypot(r.d[3*i],r.d[3*i+1]));
+  m.Ds=Math.max(1e-9,D);
+  const xs=m.deck.map(i=>m.nodes[i].x); m.xmin=Math.min(...xs); m.xmax=Math.max(...xs);
+}
+
+/* ============================================================
+   State & UI
+   ============================================================ */
+const S={type:'cantilever', variant:{truss:'pratt',arch:'deck'}, live:400, pos:0,
+  dead:true, arrows:true, values:false, reactions:true, bending:true, deflect:false};
+let model=null, res=null, error=null, dpr=1, view={s:1,ox:0,oy:0}, loadBox=null, hoverEl=-1, dragging=false;
+
+const $=id=>document.getElementById(id);
+const cv=$('cv'), ctx=cv.getContext('2d'), tip=$('tip');
+const fmt=v=>Math.round(v).toLocaleString('en-GB');
+
+function setType(type){
+  S.type=type;
+  document.querySelectorAll('#tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.type===type));
+  const v=VARIANTS[type], sel=$('variant');
+  const show=!!v; $('variantWrap').style.display=show?'':'none'; $('variantWrap').previousElementSibling.style.display=show?'':'none';
+  if(v){ sel.innerHTML=v.map(([k,l])=>`<option value="${k}">${l}</option>`).join(''); sel.value=S.variant[type]; }
+  newModel();
+}
+function newModel(){
+  model=build(S.type,S.variant[S.type]); computeScales(model);
+  const p=$('pos'); p.min=model.xmin; p.max=model.xmax;
+  S.pos=Math.min(model.xmax,Math.max(model.xmin,0)); p.value=S.pos;
+  $('info').innerHTML=model.info;
+  update();
+}
+function update(){
+  $('loadOut').textContent=fmt(S.live)+' kN';
+  $('posOut').textContent=Math.abs(S.pos)<0.5?'centre':`${Math.abs(Math.round(S.pos))} m ${S.pos<0?'left':'right'} of centre`;
+  try{ res=analyse(model,makeLoads(model,S.live,S.pos,S.dead)); error=null; }
+  catch(e){ res=null; error=e.message; }
+  draw(); summary();
+}
+
+/* ---------- Summary panel ---------- */
+function summary(){
+  const el=$('summary');
+  if(!res){ el.innerHTML=`<div class="warn">${error||'No result'}</div>`; return; }
+  const tol=0.003*model.Ns;
+  let maxT=null,maxC=null;
+  res.el.forEach((r,i)=>{ if(r.N>tol&&(!maxT||r.N>maxT.N))maxT={N:r.N,i}; if(r.N<-tol&&(!maxC||r.N<maxC.N))maxC={N:r.N,i}; });
+  const loads=makeLoads(model,S.live,S.pos,S.dead); const total=-loads.reduce((s,l)=>s+l[2],0);
+  const sumR=Object.values(res.R).reduce((s,r)=>s+r.y,0);
+  let h='';
+  h+=`<div>Largest tension: ${maxT?`<span class="t">${fmt(maxT.N)} kN</span> – ${model.els[maxT.i].name}`:'none'}</div>`;
+  h+=`<div>Largest compression: ${maxC?`<span class="c">${fmt(-maxC.N)} kN</span> – ${model.els[maxC.i].name}`:'none'}</div>`;
+  h+=`<div>Total downward load: <b>${fmt(total)} kN</b><br>Sum of upward reactions: <span class="g">${fmt(sumR)} kN</span> ${Math.abs(total-sumR)<0.5?'✓ equilibrium':''}</div>`;
+  const holds=Object.entries(res.R).filter(([,r])=>r.y<-0.005*model.Rs);
+  if(holds.length) h+=`<div>⚓ ${holds.length>1?'Some supports must pull':'A support must pull'} <b>down</b> on the bridge (${holds.map(([,r])=>fmt(-r.y)+' kN').join(', ')}), so ${holds.length>1?'they':'it'} must be tied into the ground.</div>`;
+  const thrust=Object.values(res.R).filter(r=>Math.abs(r.x)>0.01*model.Rs);
+  if(thrust.length && S.type==='arch') h+=`<div>Horizontal thrust on the abutments: <span class="g">${fmt(Math.max(...thrust.map(r=>Math.abs(r.x))))} kN</span></div>`;
+  const slack=res.el.filter((r,i)=>model.els[i].kind==='cable'&&r.N<-tol).length;
+  if(slack) h+=`<div class="warn">⚠ ${slack} cable/hanger member${slack>1?'s':''} would need to be in compression. Real cables go slack, so the structure would redistribute load (shown dashed). Self-weight normally keeps cables taut.</div>`;
+  el.innerHTML=h;
+}
+
+/* ============================================================
+   Drawing
+   ============================================================ */
+const GREY=[150,158,170], CMP=[209,52,47], TEN=[31,100,179];
+const CMP_D='#a3201c', TEN_D='#12447e', REACT='#1f7a3a';
+const mix=(a,b,f)=>`rgb(${a.map((v,i)=>Math.round(v+(b[i]-v)*f)).join(',')})`;
+
+function resize(){
+  const w=$('stage').clientWidth, h=Math.round(Math.max(w<600?260:330,Math.min(640,w*(w<600?0.75:0.56))));
+  dpr=window.devicePixelRatio||1;
+  cv.style.height=h+'px'; cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr);
+  draw();
+}
+function fit(){
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  for(const p of model.nodes){x0=Math.min(x0,p.x);x1=Math.max(x1,p.x);y0=Math.min(y0,p.y);y1=Math.max(y1,p.y);}
+  for(const t of model.terrain) for(const [,y] of t.pts) y0=Math.min(y0,y);
+  x0-=8; x1+=8;
+  const W=cv.width/dpr, H=cv.height/dpr, top=78, bot=10, side=12;
+  const s=Math.min((W-2*side)/(x1-x0),(H-top-bot)/(y1-y0));
+  view.s=s; view.ox=(W-(x1-x0)*s)/2-x0*s; view.oy=top+((H-top-bot)-(y1-y0)*s)/2+y1*s;
+}
+const toS=(x,y)=>[view.ox+x*view.s, view.oy-y*view.s];
+function exag(){ return S.deflect ? 30/(model.Ds*view.s) : 0; }
+function pos(i){ const p=model.nodes[i], k=exag(); return toS(p.x+(res?res.d[3*i]*k:0), p.y+(res?res.d[3*i+1]*k:0)); }
+
+function arrow(x1,y1,x2,y2,col,w=2.2,hs=7.5){
+  const dx=x2-x1,dy=y2-y1,L=Math.hypot(dx,dy); if(L<2) return;
+  const ux=dx/L,uy=dy/L, bx=x2-ux*hs, by=y2-uy*hs, hw=hs*0.55;
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  for(const pass of [0,1]){
+    ctx.strokeStyle=pass?col:'rgba(255,255,255,.92)'; ctx.fillStyle=col; ctx.lineWidth=pass?w:w+3.5;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(bx,by); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(bx-uy*hw,by+ux*hw); ctx.lineTo(bx+uy*hw,by-ux*hw); ctx.closePath();
+    if(pass) ctx.fill(); else { ctx.lineWidth=3; ctx.stroke(); }
+  }
+}
+function label(text,x,y,col,align='center'){
+  ctx.font='600 11.5px system-ui,-apple-system,Segoe UI,Roboto,sans-serif';
+  ctx.textAlign=align; ctx.textBaseline='middle';
+  ctx.lineWidth=3.5; ctx.strokeStyle='rgba(255,255,255,.95)'; ctx.strokeText(text,x,y);
+  ctx.fillStyle=col; ctx.fillText(text,x,y);
+}
+
+function drawTerrain(){
+  const W=cv.width/dpr, H=cv.height/dpr;
+  const g=ctx.createLinearGradient(0,0,0,H); g.addColorStop(0,'#eef4fb'); g.addColorStop(1,'#f9fbfd');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  for(const type of ['water','earth']) for(const t of model.terrain){
+    if(t.type!==type) continue;
+    ctx.beginPath(); t.pts.forEach(([x,y],k)=>{const [sx,sy]=toS(x,y); k?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);}); ctx.closePath();
+    ctx.fillStyle=type==='water'?'#cfe4f3':'#e2d6bd'; ctx.fill();
+    if(type==='earth'){ ctx.strokeStyle='#c4b28c'; ctx.lineWidth=1; ctx.stroke(); }
+  }
+}
+function drawSupports(){
+  for(const key in model.sup){
+    const i=+key, [x,y]=toS(model.nodes[i].x,model.nodes[i].y), sym=model.sym[i];
+    ctx.lineWidth=1.2; ctx.strokeStyle='#4a505c';
+    if(sym==='anchor'){ ctx.fillStyle='#aeb4bd'; ctx.fillRect(x-14,y-6,28,20); ctx.strokeRect(x-14,y-6,28,20);
+      ctx.fillStyle='#4a505c'; ctx.font='600 9px system-ui,sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('ANCHOR',x,y+8); }
+    else if(sym==='footing'){ ctx.fillStyle='#aeb4bd'; ctx.fillRect(x-13,y,26,8); ctx.strokeRect(x-13,y,26,8); }
+    else {
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x-8,y+11); ctx.lineTo(x+8,y+11); ctx.closePath(); ctx.fill(); ctx.stroke();
+      if(sym==='roller'){ for(const dx of [-4,4]){ ctx.beginPath(); ctx.arc(x+dx,y+14,2.6,0,7); ctx.stroke(); } }
+      else { ctx.beginPath(); ctx.moveTo(x-10,y+11); ctx.lineTo(x+10,y+11); ctx.stroke(); }
+    }
+  }
+}
+function baseWidth(e){ return e.kind==='beam' ? (e.deck?9:8) : e.kind==='cable' ? 3 : (e.name==='Pier'||e.name==='Tower'?8:5); }
+
+function draw(){
+  if(!model) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  fit(); drawTerrain();
+  const W=cv.width/dpr;
+  if(!res){ label(error||'Error',W/2,40,'#8a0000'); return; }
+  const tol=0.003*model.Ns;
+
+  // ghost of undeformed shape
+  if(S.deflect){
+    ctx.setLineDash([4,4]); ctx.strokeStyle='rgba(90,100,117,.45)'; ctx.lineWidth=1.2;
+    for(const e of model.els){ const a=toS(model.nodes[e.i].x,model.nodes[e.i].y), b=toS(model.nodes[e.j].x,model.nodes[e.j].y);
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
+  drawSupports();
+
+  // members
+  model.els.forEach((e,k)=>{
+    const r=res.el[k], a=pos(e.i), b=pos(e.j), mag=Math.abs(r.N), ratio=Math.min(1,mag/model.Ns), zero=mag<tol;
+    const col=zero?GREY:(r.N<0?CMP:TEN), f=zero?0:0.35+0.65*ratio;
+    ctx.lineCap='round';
+    if(k===hoverEl){ ctx.strokeStyle='rgba(255,196,0,.8)'; ctx.lineWidth=baseWidth(e)+10; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
+    ctx.strokeStyle=mix(GREY,col,f);
+    ctx.lineWidth=baseWidth(e)+(zero||e.kind==='beam'?0:4*ratio);
+    if(e.kind==='cable'&&r.N<-tol) ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); ctx.setLineDash([]);
+  });
+
+  // bending: colour the squeezed / stretched faces of beam elements
+  if(S.bending){
+    model.els.forEach((e,k)=>{
+      if(e.kind!=='beam') return;
+      const r=res.el[k], a=pos(e.i), b=pos(e.j), nx=-r.s, ny=-r.c; // local +y normal in screen coords
+      const off=baseWidth(e)/2+2.5, segs=10;
+      for(let q=0;q<segs;q++){
+        const t=(q+0.5)/segs, M=r.M1+(r.M2-r.M1)*t, rat=Math.abs(M)/model.Ms;
+        if(rat<0.02) continue;
+        const x1=a[0]+(b[0]-a[0])*q/segs, y1=a[1]+(b[1]-a[1])*q/segs, x2=a[0]+(b[0]-a[0])*(q+1)/segs, y2=a[1]+(b[1]-a[1])*(q+1)/segs;
+        const alpha=Math.min(1,0.25+0.9*rat);
+        for(const sgn of [1,-1]){
+          const comp=(M>0)===(sgn>0); // sagging (+M) compresses local +y face
+          ctx.strokeStyle=comp?`rgba(209,52,47,${alpha})`:`rgba(31,100,179,${alpha})`;
+          ctx.lineWidth=3; ctx.lineCap='butt';
+          ctx.beginPath(); ctx.moveTo(x1+nx*off*sgn,y1+ny*off*sgn); ctx.lineTo(x2+nx*off*sgn,y2+ny*off*sgn); ctx.stroke();
+        }
+      }
+    });
+  }
+
+  // axial force arrows
+  if(S.arrows){
+    model.els.forEach((e,k)=>{
+      const r=res.el[k], mag=Math.abs(r.N); if(mag<tol) return;
+      const a=pos(e.i), b=pos(e.j), dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+      const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2, gap=5;
+      const len=Math.min(0.46*L-gap, 10+58*mag/model.Ns); if(len<8) return;
+      const col=r.N<0?CMP_D:TEN_D;
+      for(const sg of [1,-1]){
+        const pIn=[mx+ux*gap*sg,my+uy*gap*sg], pOut=[mx+ux*(gap+len)*sg,my+uy*(gap+len)*sg];
+        if(r.N>0) arrow(...pIn,...pOut,col); else arrow(...pOut,...pIn,col);
+      }
+    });
+  }
+
+  // values
+  if(S.values && view.s>4.5){
+    model.els.forEach((e,k)=>{
+      const r=res.el[k]; if(Math.abs(r.N)<tol) return;
+      const a=pos(e.i), b=pos(e.j), L=Math.hypot(b[0]-a[0],b[1]-a[1]); if(L<22) return;
+      const nx=-(b[1]-a[1])/L, ny=(b[0]-a[0])/L;
+      label(`${r.N<0?'C':'T'} ${fmt(Math.abs(r.N))}`,(a[0]+b[0])/2+nx*11,(a[1]+b[1])/2+ny*11,r.N<0?CMP_D:TEN_D);
+    });
+  }
+
+  // reactions
+  if(S.reactions){
+    const rt=0.004*model.Rs;
+    for(const key in res.R){
+      const i=+key, r=res.R[i], [x,y]=pos(i), below=model.sym[i]==='anchor'?16:15;
+      if(Math.abs(r.y)>rt){
+        const len=Math.min(70,14+56*Math.abs(r.y)/model.Rs);
+        if(r.y>0) arrow(x,y+below+len,x,y+below,REACT,2.6,8); else arrow(x,y+below,x,y+below+len,REACT,2.6,8);
+        if(S.values) label(`${fmt(Math.abs(r.y))} kN`,x+6,y+below+len+(r.y>0?-len/2:-len/2),REACT,'left');
+      }
+      if(Math.abs(r.x)>rt){
+        const len=Math.min(70,14+56*Math.abs(r.x)/model.Rs), yy=y+4, g=13;
+        if(r.x>0) arrow(x-g-len,yy,x-g,yy,REACT,2.6,8); else arrow(x+g+len,yy,x+g,yy,REACT,2.6,8);
+        if(S.values) label(`${fmt(Math.abs(r.x))} kN`,r.x>0?x-g-len/2:x+g+len/2,yy+11,REACT);
+      }
+    }
+  }
+
+  // live load block
+  const D=model.deck, xs=D.map(i=>model.nodes[i].x);
+  let k=0; while(k<xs.length-2&&S.pos>xs[k+1]) k++;
+  const t=Math.min(1,Math.max(0,(S.pos-xs[k])/(xs[k+1]-xs[k]))), pa=pos(D[k]), pb=pos(D[k+1]);
+  const px=pa[0]+(pb[0]-pa[0])*t, py=pa[1]+(pb[1]-pa[1])*t;
+  const deckHalf=(model.els.find(e=>e.kind==='beam'&&e.deck)?5:3);
+  const bw=24+22*S.live/LIVE_MAX, bh=14+8*S.live/LIVE_MAX, by=py-deckHalf-bh;
+  ctx.globalAlpha=S.live>0?1:0.35;
+  ctx.fillStyle='#2b303b'; ctx.strokeStyle='#fff'; ctx.lineWidth=1.5;
+  ctx.beginPath(); if(ctx.roundRect) ctx.roundRect(px-bw/2,by,bw,bh,3); else ctx.rect(px-bw/2,by,bw,bh); ctx.fill(); ctx.stroke();
+  arrow(px,by-28,px,by-2,'#2b303b',2.6,8);
+  label(`${fmt(S.live)} kN`,px,by-38,'#2b303b');
+  ctx.globalAlpha=1;
+  loadBox={x:px-bw/2-10,y:by-48,w:bw+20,h:bh+54};
+
+  // captions
+  ctx.font='600 13px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; ctx.textAlign='left'; ctx.textBaseline='top'; ctx.fillStyle='#1c2230';
+  ctx.fillText(model.name,12,10);
+  ctx.font='12px system-ui,-apple-system,Segoe UI,Roboto,sans-serif'; ctx.fillStyle='#5a6475';
+  ctx.fillText(S.dead?'Self-weight 10 kN/m included':'Self-weight off (point load only)',12,28);
+  if(S.deflect){ ctx.textAlign='right'; ctx.fillText(`Deflections exaggerated ×${fmt(exag())}`,W-12,10); }
+}
+
+/* ---------- Interaction ---------- */
+function pt(e){ const r=cv.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+function inLoad(p){ return loadBox&&p.x>=loadBox.x&&p.x<=loadBox.x+loadBox.w&&p.y>=loadBox.y&&p.y<=loadBox.y+loadBox.h; }
+function nearestEl(p){
+  let best=-1,bd=9;
+  model.els.forEach((e,k)=>{
+    const a=pos(e.i), b=pos(e.j), dx=b[0]-a[0], dy=b[1]-a[1], L2=dx*dx+dy*dy;
+    const t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.y-a[1])*dy)/L2));
+    const d=Math.hypot(p.x-a[0]-t*dx,p.y-a[1]-t*dy);
+    if(d<bd){bd=d;best=k;}
+  });
+  return best;
+}
+function showTip(p){
+  const k=nearestEl(p);
+  if(k!==hoverEl){ hoverEl=k; draw(); }
+  if(k<0||!res){ tip.style.display='none'; return; }
+  const e=model.els[k], r=res.el[k], tol=0.003*model.Ns;
+  let h=`<b>${e.name}</b><br>`;
+  h+=Math.abs(r.N)<tol?'Axial force ≈ 0 (zero-force member)':
+     (r.N<0?`<span style="color:#ff9a95">Compression</span>`:`<span style="color:#9cc6ff">Tension</span>`)+` ${fmt(Math.abs(r.N))} kN`;
+  if(e.kind==='cable'&&r.N<-tol) h+='<br>⚠ a cable cannot push: it would go slack';
+  if(e.kind==='beam'){ const M=Math.abs(r.M1)>Math.abs(r.M2)?r.M1:r.M2; if(Math.abs(M)>0.01*model.Ms) h+=`<br>Bending up to ${fmt(Math.abs(M))} kN·m (${M>0?'sagging':'hogging'})`; }
+  tip.innerHTML=h; tip.style.display='block';
+  const W=cv.clientWidth, tw=tip.offsetWidth;
+  tip.style.left=Math.min(W-tw-6,Math.max(6,p.x+14))+'px'; tip.style.top=Math.max(6,p.y-50)+'px';
+}
+function dragTo(p){
+  const x=(p.x-view.ox)/view.s;
+  S.pos=Math.round(Math.min(model.xmax,Math.max(model.xmin,x))); $('pos').value=S.pos; update();
+}
+cv.addEventListener('pointerdown',e=>{ const p=pt(e);
+  if(inLoad(p)){ dragging=true; cv.setPointerCapture(e.pointerId); tip.style.display='none'; } else showTip(p); });
+cv.addEventListener('pointermove',e=>{ const p=pt(e);
+  if(dragging){ dragTo(p); return; }
+  cv.style.cursor=inLoad(p)?'grab':'default';
+  if(e.pointerType==='mouse') showTip(p); });
+cv.addEventListener('pointerup',()=>{ dragging=false; });
+cv.addEventListener('pointerleave',()=>{ if(!dragging){ tip.style.display='none'; if(hoverEl>=0){hoverEl=-1;draw();} } });
+
+document.querySelectorAll('#tabs button').forEach(b=>b.addEventListener('click',()=>setType(b.dataset.type)));
+$('variant').addEventListener('change',e=>{ S.variant[S.type]=e.target.value; newModel(); });
+$('load').addEventListener('input',e=>{ S.live=+e.target.value; update(); });
+$('pos').addEventListener('input',e=>{ S.pos=+e.target.value; update(); });
+$('centre').addEventListener('click',()=>{ S.pos=0; $('pos').value=0; update(); });
+for(const id of ['dead','arrows','values','reactions','bending','deflect'])
+  $(id).addEventListener('change',e=>{ S[id]=e.target.checked; update(); });
+
+new ResizeObserver(resize).observe($('stage'));
+setType('cantilever');
+resize();
+</script>
+</body>
+</html>
