@@ -57,7 +57,8 @@
 
 <div class="wrap">
   <div class="tabs" role="tablist" id="tabs">
-    <button role="tab" data-type="cantilever" aria-selected="true">Cantilever</button>
+    <button role="tab" data-type="beam" aria-selected="true">Beam</button>
+    <button role="tab" data-type="cantilever" aria-selected="false">Cantilever</button>
     <button role="tab" data-type="truss" aria-selected="false">Truss</button>
     <button role="tab" data-type="arch" aria-selected="false">Arch</button>
     <button role="tab" data-type="suspension" aria-selected="false">Suspension</button>
@@ -110,7 +111,7 @@
 <footer>
   Model: 2D linear-elastic stiffness analysis. Pin-jointed members (truss bars, cables, hangers, columns, towers) carry axial force only;
   continuous decks and arch ribs are modelled as beams carrying axial force and bending. Steel, E = 200 GPa. Arrows show the forces acting
-  <i>on</i> each member. Values are indicative for teaching, not design. Hover or tap a member for its force.
+  <i>on</i> each member. For the beam bridge, the arrows above and below the beam show the equivalent top- and bottom-flange forces, M ÷ depth (depth 2 m). Values are indicative for teaching, not design. Hover or tap a member for its force.
 </footer>
 
 <noscript><p style="padding:20px">This simulation needs JavaScript enabled.</p></noscript>
@@ -225,6 +226,45 @@ function makeLoads(m,live,x,dead){
 /* ============================================================
    Bridge definitions
    ============================================================ */
+function buildBeam(kind){
+  const m=mk(); m.bendArrows=true; m.depth=2;
+  const A=0.15, I=0.08;
+  if(kind==='continuous'){
+    m.name='Continuous beam bridge (three spans)';
+    const d={};
+    for(let x=-45;x<=45;x+=5) d[x]=node(m,x,0);
+    for(let x=-45;x<45;x+=5) beam(m,d[x],d[x+5],'Beam',A,I);
+    for(const x of [-15,15]){ const f=node(m,x,-14); bar(m,d[x],f,'Pier',0.2); pin(m,f,'footing'); }
+    pin(m,d[-45]); roller(m,d[45]);
+    m.deck=Object.keys(d).map(Number).sort((a,b)=>a-b).map(x=>d[x]);
+    terr(m,'water',[[-41,-8],[41,-8],[41,-14],[-41,-14]]);
+    terr(m,'earth',[[-80,0],[-45,0],[-42,-3],[-37,-14],[-80,-14]],true);
+    terr(m,'earth',[[-80,-14],[80,-14],[80,-17],[-80,-17]]);
+  } else {
+    m.name='Simple beam bridge';
+    const d={};
+    for(let x=-30;x<=30;x+=5) d[x]=node(m,x,0);
+    for(let x=-30;x<30;x+=5) beam(m,d[x],d[x+5],'Beam',A,I);
+    pin(m,d[-30]); roller(m,d[30]);
+    m.deck=Object.keys(d).map(Number).sort((a,b)=>a-b).map(x=>d[x]);
+    terr(m,'water',[[-26,-8],[26,-8],[26,-13],[-26,-13]]);
+    terr(m,'earth',[[-60,0],[-30,0],[-27,-3],[-22,-13],[-60,-13]],true);
+    terr(m,'earth',[[-60,-13],[60,-13],[60,-16],[-60,-16]]);
+  }
+  m.info = kind==='continuous' ? `<h3>Continuous beam bridge</h3>
+  <p>One beam runs continuously over two intermediate <b>piers</b>, which are in <span class="c">compression</span>. Because the beam is continuous, a load in one span is partly resisted by the neighbouring spans.</p>
+  <p><b>Look for:</b> in the middle of each span the beam <i>sags</i>, with <span class="c">compression</span> on top and <span class="t">tension</span> underneath, as in a simple beam.
+  Over the piers the beam <i>hogs</i> (bends the other way), so the pattern flips: <span class="t">tension</span> on top, <span class="c">compression</span> underneath. Between the two regions, where the arrows vanish, is a <b>point of contraflexure</b> with zero bending.
+  This is why reinforced-concrete beams have steel bars near the bottom at mid-span but near the top over supports. Move the load into an outer span and watch the middle span lift.</p>`
+  : `<h3>Simple beam bridge</h3>
+  <p>The simplest bridge: a single rigid beam resting on a support at each end (a pin at one end and a roller at the other, so it is free to expand). The load is carried by <b>bending</b>.</p>
+  <p><b>Look for:</b> the beam sags, so its <b>top face is squeezed</b> (<span class="c">compression</span>) and its <b>bottom face is stretched</b> (<span class="t">tension</span>). Halfway between them, the <b>neutral axis</b> is neither stretched nor squeezed.
+  The arrows show the force in the top and bottom flanges (bending moment ÷ depth). They are largest at mid-span and fall to zero at the supports.</p>
+  <p>The bending moment grows with the <i>square</i> of the span under the beam's own weight, which is why beam bridges are only used for short spans and why longer bridges need trusses, arches or cables.
+  For a point load <i>F</i> at mid-span the maximum moment is <i>FL</i>/4, and for the self-weight it is <i>wL</i>²/8. Check these with the force values switched on (depth 2 m, span 60 m).</p>`;
+  return m;
+}
+
 function buildCantilever(){
   const m=mk(); m.name='Cantilever bridge';
   const xs=[-84,-72,-60,-48,-36,-24,-12];
@@ -370,10 +410,12 @@ Cables can only pull. The deck's own weight keeps them taut (pre-tensioned), and
 }
 
 const VARIANTS={
+  beam:[['simple','Simple span'],['continuous','Continuous (three spans)']],
   truss:[['pratt','Pratt truss'],['howe','Howe truss'],['warren','Warren truss']],
   arch:[['deck','Deck arch'],['tied','Tied arch (bowstring)']]
 };
 function build(type,variant){
+  if(type==='beam') return buildBeam(variant||'simple');
   if(type==='cantilever') return buildCantilever();
   if(type==='truss') return buildTruss(variant||'pratt');
   if(type==='arch') return buildArch(variant||'deck');
@@ -387,6 +429,7 @@ function computeScales(m){
   const r=analyse(m,makeLoads(m,LIVE_MAX,0,true));
   m.Ns=Math.max(1e-6,...r.el.map(e=>Math.abs(e.N)));
   m.Ms=Math.max(1e-6,...r.el.map((e,i)=>m.els[i].kind==='beam'?Math.max(Math.abs(e.M1),Math.abs(e.M2)):0));
+  if(m.bendArrows) m.Ns=Math.max(m.Ns,m.Ms/m.depth); // ignore round-off axial force in a pure beam
   m.Rs=Math.max(1e-6,...Object.values(r.R).flatMap(v=>[Math.abs(v.x),Math.abs(v.y)]));
   let D=0; for(let i=0;i<m.nodes.length;i++) D=Math.max(D,Math.hypot(r.d[3*i],r.d[3*i+1]));
   m.Ds=Math.max(1e-9,D);
@@ -396,7 +439,7 @@ function computeScales(m){
 /* ============================================================
    State & UI
    ============================================================ */
-const S={type:'cantilever', variant:{truss:'pratt',arch:'deck'}, live:400, pos:0,
+const S={type:'beam', variant:{beam:'simple',truss:'pratt',arch:'deck'}, live:400, pos:0,
   dead:true, arrows:true, values:false, reactions:true, bending:true, deflect:false};
 let model=null, res=null, error=null, dpr=1, view={s:1,ox:0,oy:0}, loadBox=null, hoverEl=-1, dragging=false;
 
@@ -437,8 +480,13 @@ function summary(){
   const loads=makeLoads(model,S.live,S.pos,S.dead); const total=-loads.reduce((s,l)=>s+l[2],0);
   const sumR=Object.values(res.R).reduce((s,r)=>s+r.y,0);
   let h='';
-  h+=`<div>Largest tension: ${maxT?`<span class="t">${fmt(maxT.N)} kN</span> – ${model.els[maxT.i].name}`:'none'}</div>`;
-  h+=`<div>Largest compression: ${maxC?`<span class="c">${fmt(-maxC.N)} kN</span> – ${model.els[maxC.i].name}`:'none'}</div>`;
+  if(model.bendArrows){
+    let ms=0,mh=0; res.el.forEach((r,i)=>{ if(model.els[i].kind!=='beam') return; for(const M of [r.M1,r.M2]){ if(M>ms)ms=M; if(M<mh)mh=M; } });
+    h+=`<div>Max sagging moment: <b>${fmt(ms)} kN·m</b><br>→ top flange <span class="c">C ${fmt(ms/model.depth)} kN</span>, bottom flange <span class="t">T ${fmt(ms/model.depth)} kN</span></div>`;
+    if(mh<-0.01*model.Ms) h+=`<div>Max hogging moment (over piers): <b>${fmt(-mh)} kN·m</b><br>→ top flange <span class="t">T ${fmt(-mh/model.depth)} kN</span>, bottom flange <span class="c">C ${fmt(-mh/model.depth)} kN</span></div>`;
+  }
+  if(!model.bendArrows||maxT) h+=`<div>Largest tension: ${maxT?`<span class="t">${fmt(maxT.N)} kN</span> – ${model.els[maxT.i].name}`:'none'}</div>`;
+  if(!model.bendArrows||maxC) h+=`<div>Largest compression: ${maxC?`<span class="c">${fmt(-maxC.N)} kN</span> – ${model.els[maxC.i].name}`:'none'}</div>`;
   h+=`<div>Total downward load: <b>${fmt(total)} kN</b><br>Sum of upward reactions: <span class="g">${fmt(sumR)} kN</span> ${Math.abs(total-sumR)<0.5?'✓ equilibrium':''}</div>`;
   const holds=Object.entries(res.R).filter(([,r])=>r.y<-0.005*model.Rs);
   if(holds.length) h+=`<div>⚓ ${holds.length>1?'Some supports must pull':'A support must pull'} <b>down</b> on the bridge (${holds.map(([,r])=>fmt(-r.y)+' kN').join(', ')}), so ${holds.length>1?'they':'it'} must be tied into the ground.</div>`;
@@ -518,7 +566,7 @@ function drawSupports(){
     }
   }
 }
-function baseWidth(e){ return e.kind==='beam' ? (e.deck?9:8) : e.kind==='cable' ? 3 : (e.name==='Pier'||e.name==='Tower'?8:5); }
+function baseWidth(e){ return e.kind==='beam' ? (model.bendArrows?14:e.deck?9:8) : e.kind==='cable' ? 3 : (e.name==='Pier'||e.name==='Tower'?8:5); }
 
 function draw(){
   if(!model) return;
@@ -583,6 +631,37 @@ function draw(){
         if(r.N>0) arrow(...pIn,...pOut,col); else arrow(...pOut,...pIn,col);
       }
     });
+  }
+
+  // beam bridge: flange force arrows (M / depth) on top & bottom faces
+  if(model.bendArrows && (S.arrows||S.values)){
+    model.els.forEach((e,k)=>{
+      if(e.kind!=='beam') return;
+      const r=res.el[k], M=(r.M1+r.M2)/2, rat=Math.abs(M)/model.Ms;
+      const a=pos(e.i), b=pos(e.j), dx=b[0]-a[0], dy=b[1]-a[1], L=Math.hypot(dx,dy), ux=dx/L, uy=dy/L;
+      const nx=-r.s, ny=-r.c, off=baseWidth(e)/2+9, mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2, gap=3;
+      if(S.arrows && rat>=0.03){
+        const len=Math.max(5,Math.min(0.48*L-gap,(0.48*L-gap)*rat));
+        for(const face of [1,-1]){ // +1 = local +y (top for a left-to-right deck)
+          const comp=(M>0)===(face>0), col=comp?CMP_D:TEN_D, cx=mx+nx*off*face, cy=my+ny*off*face;
+          for(const sg of [1,-1]){
+            const pIn=[cx+ux*gap*sg,cy+uy*gap*sg], pOut=[cx+ux*(gap+len)*sg,cy+uy*(gap+len)*sg];
+            if(comp) arrow(...pOut,...pIn,col,2,6); else arrow(...pIn,...pOut,col,2,6);
+          }
+        }
+      }
+    });
+    if(S.values && view.s>4.5){ // label the flange forces at the peak sagging and peak hogging sections
+      let pk=[null,null];
+      model.els.forEach((e,k)=>{ if(e.kind!=='beam') return; const r=res.el[k];
+        for(const [M,n] of [[r.M1,e.i],[r.M2,e.j]]){ const q=M>0?0:1; if(!pk[q]||Math.abs(M)>Math.abs(pk[q].M)) pk[q]={M,n}; } });
+      for(const p of pk){ if(!p||Math.abs(p.M)<0.03*model.Ms) continue;
+        // sagging peak labelled below the beam (clear of the load), hogging peak above (clear of the piers)
+        const [x,y]=pos(p.n), F=fmt(Math.abs(p.M)/model.depth), sag=p.M>0, dir=sag?1:-1, o=baseWidth({kind:'beam'})/2+24;
+        label(`M = ${fmt(Math.abs(p.M))} kN·m`,x,y+dir*o,'#1c2230');
+        label(`top ${sag?'C':'T'} ${F} kN · bottom ${sag?'T':'C'} ${F} kN`,x,y+dir*(o+14),'#5a6475');
+      }
+    }
   }
 
   // values
@@ -685,7 +764,7 @@ for(const id of ['dead','arrows','values','reactions','bending','deflect'])
   $(id).addEventListener('change',e=>{ S[id]=e.target.checked; update(); });
 
 new ResizeObserver(resize).observe($('stage'));
-setType('cantilever');
+setType('beam');
 resize();
 </script>
 </body>
