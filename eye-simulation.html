@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Human Eye: Focusing and the Pupil</title>
+<style>
+  :root{
+    --bg:#f4f1ea; --panel:#ffffff; --ink:#1d2433; --muted:#5d6577; --line:#d9d3c5;
+    --accent:#1f5f8b; --ok:#2e7d4f; --warn:#b5661b; --ray:#d1342f;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.45}
+  header{padding:18px 20px 6px;max-width:1280px;margin:0 auto}
+  header h1{margin:0;font-size:1.6rem;letter-spacing:-.01em}
+  header p{margin:.25rem 0 0;color:var(--muted)}
+  main{max-width:1280px;margin:0 auto;padding:10px 20px 30px;display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:18px;align-items:start}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:10px}
+  #eye{width:100%;height:auto;display:block;touch-action:manipulation}
+  .status{border-radius:10px;padding:10px 14px;font-weight:600;font-size:1.02rem;display:flex;align-items:center;gap:10px}
+  .status .dot{width:14px;height:14px;border-radius:50%;flex:none}
+  .status.ok{background:#e5f3ea;color:var(--ok)} .status.ok .dot{background:var(--ok)}
+  .status.warn{background:#fbeedf;color:var(--warn)} .status.warn .dot{background:var(--warn)}
+  aside{display:flex;flex-direction:column;gap:14px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px 16px}
+  .card h2{margin:0 0 8px;font-size:1rem}
+  .card h2 span{color:var(--accent);margin-right:4px}
+  input[type=range]{width:100%;accent-color:var(--accent);margin:6px 0 2px;height:28px}
+  .ends{display:flex;justify-content:space-between;gap:10px;font-size:.78rem;color:var(--muted)}
+  .ends span:last-child{text-align:right}
+  dl{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:10px 0 0;font-size:.9rem}
+  dt{color:var(--muted)} dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums;text-align:right}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg label{flex:1 1 90px;border:1px solid var(--line);border-radius:8px;padding:7px 8px;font-size:.85rem;cursor:pointer;text-align:center}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg label:has(input:checked){background:var(--accent);border-color:var(--accent);color:#fff}
+  .seg label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+  .hint{font-size:.8rem;color:var(--muted);margin:.5rem 0 0}
+  .diagram{display:flex;gap:14px;align-items:center}
+  .diagram #eye{flex:1 1 auto;min-width:0}
+  .spotcard{flex:0 0 150px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#fbfaf6}
+  .spotcard h2{margin:0 0 8px;font-size:.9rem;line-height:1.3}
+  #spot{width:100%;height:auto;aspect-ratio:1;border-radius:8px;display:block}
+  .spotcard p{margin:8px 0 0;font-size:.82rem}
+  @media (max-width:640px){.diagram{flex-direction:column;align-items:stretch}.spotcard{flex:none;display:grid;grid-template-columns:110px 1fr;gap:4px 12px;align-items:center}.spotcard h2{grid-column:1/-1}.spotcard p{margin:0}}
+  .toggles{display:flex;gap:16px;flex-wrap:wrap;font-size:.9rem}
+  .toggles label{display:flex;gap:6px;align-items:center;cursor:pointer}
+  button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:#faf8f3;border-radius:8px;padding:5px 10px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .btns{display:flex;gap:6px;margin-top:8px}
+  svg text{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+</style>
+</head>
+<body>
+<header>
+  <h1>The Human Eye: Focusing and the Pupil</h1>
+  <p>Side (elevation) cross-section, drawn approximately to scale. Light from a distant object arrives as parallel rays from the left.</p>
+</header>
+
+<main>
+  <div class="stage">
+    <div class="diagram">
+    <svg id="eye" viewBox="-13 -15.6 48 31.2" role="img" aria-label="Cross-section of the human eye with light rays">
+      <defs>
+        <radialGradient id="gLens" cx="45%" cy="45%" r="70%">
+          <stop offset="0" stop-color="#fff8dc" stop-opacity=".95"/>
+          <stop offset="1" stop-color="#f1d99a" stop-opacity=".9"/>
+        </radialGradient>
+        <linearGradient id="gMuscle" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#d9757a"/><stop offset="1" stop-color="#b8474f"/>
+        </linearGradient>
+        <linearGradient id="gNerve" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#f3d98b"/><stop offset="1" stop-color="#e7c565"/>
+        </linearGradient>
+        <clipPath id="clipAq"><rect x="-1" y="-9" width="4.45" height="18"/></clipPath>
+      </defs>
+      <g id="scene"></g>
+    </svg>
+    <div class="spotcard">
+      <h2>Image of a distant point on the retina</h2>
+      <svg id="spot" viewBox="-1 -1 2 2" aria-label="Spot of light on the retina"></svg>
+      <p id="spotText"></p>
+    </div>
+    </div>
+    <div id="status" class="status ok" aria-live="polite"><span class="dot"></span><span id="statusText"></span></div>
+  </div>
+
+  <aside>
+    <div class="card">
+      <h2><span>1</span>Lens shape</h2>
+      <label for="acc" class="hint" style="margin:0">Drag to change the lens (accommodation)</label>
+      <input id="acc" type="range" min="0" max="100" step="1" value="0">
+      <div class="ends"><span>Ciliary muscles relaxed<br><b>lens stretched thin</b></span><span>Ciliary muscles contracted<br><b>lens relaxes, fat &amp; round</b></span></div>
+      <dl>
+        <dt>Lens power</dt><dd id="pLens"></dd>
+        <dt>Whole-eye power</dt><dd id="pEye"></dd>
+        <dt>Focus position</dt><dd id="pFocus"></dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2><span>2</span>Light intensity</h2>
+      <label for="lum" class="hint" style="margin:0">Brightness of the incoming light</label>
+      <input id="lum" type="range" min="-3" max="4.5" step="0.05" value="1.6">
+      <div class="ends"><span>Starlight</span><span>Bright sunlight</span></div>
+      <dl>
+        <dt>Scene</dt><dd id="lDesc"></dd>
+        <dt>Luminance</dt><dd id="lVal"></dd>
+        <dt>Pupil diameter</dt><dd id="lPupil"></dd>
+        <dt>Light entering eye</dt><dd id="lIn"></dd>
+      </dl>
+    </div>
+
+    <div class="card">
+      <h2><span>3</span>Eyeball</h2>
+      <div class="seg" role="radiogroup" aria-label="Eyeball length">
+        <label><input type="radio" name="eye" value="normal" checked>Normal</label>
+        <label><input type="radio" name="eye" value="long">Long-sighted</label>
+        <label><input type="radio" name="eye" value="short">Short-sighted</label>
+      </div>
+      <p class="hint" id="eyeHint"></p>
+    </div>
+
+    <div class="card">
+      <h2>Display</h2>
+      <div class="toggles">
+        <label><input type="checkbox" id="tLabels" checked> Labels</label>
+        <label><input type="checkbox" id="tBeam" checked> Light beam</label>
+      </div>
+      <div class="btns"><button id="reset">Reset</button></div>
+    </div>
+  </aside>
+</main>
+
+
+<script>
+(function(){
+"use strict";
+// ---------- Optical constants (mm) ----------
+var N_AIR=1.000, N_AQ=1.336, N_LENS=1.42, N_VIT=1.336;
+var R_CORNEA=7.8;      // anterior corneal radius
+var X_LENS=3.6;        // anterior lens vertex
+var X_IRIS=3.0;        // front face of iris (pupil plane)
+var X0=-12.6;          // where incident rays start
+var SHORT_F = 1.15;    // eyeball length offset for refractive errors (mm)
+
+var state={acc:0, logL:1.6, eye:"normal", rp:null, labels:true, beam:true};
+
+function lensAt(s){
+  var c1=1/13+(1/6.0-1/13)*s, c2=-1/8+(-1/5.5+1/8)*s;
+  return {R1:1/c1, R2:1/c2, t:3.5+0.5*s, h:4.6-0.5*s};
+}
+function sagX(xv,R,y){ return xv+R-Math.sign(R)*Math.sqrt(Math.max(R*R-y*y,0)); }
+function surfHit(x0,y0,u,xv,R){
+  var x=xv; for(var i=0;i<30;i++){ x=sagX(xv,R,y0+u*(x-x0)); }
+  return {x:x, y:y0+u*(x-x0)};
+}
+function refr(u,y,R,n1,n2){ return (n1*u - y*(n2-n1)/R)/n2; }
+function pupilD(logL){ return 4.9-3*Math.tanh(0.4*logL); }
+var D_MAX=pupilD(-3);
+
+// focus of a ray at height y (independent of retina position)
+function focusX(y0,L){
+  var x=X0,y=y0,u=0,h;
+  var S=[[0,R_CORNEA,N_AIR,N_AQ],[X_LENS,L.R1,N_AQ,N_LENS],[X_LENS+L.t,L.R2,N_LENS,N_VIT]];
+  for(var i=0;i<3;i++){ h=surfHit(x,y,u,S[i][0],S[i][1]); x=h.x;y=h.y; u=refr(u,y,S[i][1],S[i][2],S[i][3]); }
+  return x-y/u;
+}
+var F_RELAXED=focusX(1.5,lensAt(0));
+
+// ---------- Eye geometry ----------
+function geom(eye){
+  var RETX=F_RELAXED + (eye==="long"?-SHORT_F: eye==="short"?SHORT_F:0);
+  var xl=1.0, xr=RETX+0.9, G={RETX:RETX, cx:(xl+xr)/2, a:(xr-xl)/2, b:11.9};
+  G.ar=G.a-0.9; G.br=G.b-0.9;
+  // cornea / sclera junction
+  var lo=0, hi=7.7;
+  for(var i=0;i<50;i++){ var m=(lo+hi)/2; if(corneaX(m) < scleraX(G,m)) lo=m; else hi=m; }
+  G.jy=lo;
+  return G;
+}
+function corneaX(y){ return R_CORNEA-Math.sqrt(R_CORNEA*R_CORNEA-y*y); }
+function scleraX(G,y){ var q=y/G.b; return G.cx-G.a*Math.sqrt(Math.max(0,1-q*q)); }
+function wallY(G,x){ var q=(x-G.cx)/G.ar; return G.br*Math.sqrt(Math.max(0,1-q*q)); }
+function retinaPt(G,t){ return [G.cx+G.ar*Math.cos(t), G.br*Math.sin(t)]; }
+function scleraPt(G,t){ return [G.cx+G.a*Math.cos(t), G.b*Math.sin(t)]; }
+function retinaHit(G,x0,y0,u){
+  var dx=x0-G.cx, a2=G.ar*G.ar, b2=G.br*G.br;
+  var A=1/a2+u*u/b2, B=2*dx/a2+2*y0*u/b2, C=dx*dx/a2+y0*y0/b2-1;
+  var t=(-B+Math.sqrt(Math.max(0,B*B-4*A*C)))/(2*A);
+  return {x:x0+t, y:y0+u*t};
+}
+
+// full trace: returns polyline points, blocked flag, focus, retina hit
+function trace(y0,L,G,rp){
+  var pts=[[X0,y0]], x=X0, y=y0, u=0, h;
+  if(Math.abs(y0)>G.jy){ pts.push([scleraX(G,y0),y0]); return {pts:pts,blocked:true}; }
+  h=surfHit(x,y,u,0,R_CORNEA); pts.push([h.x,h.y]); x=h.x;y=h.y; u=refr(u,y,R_CORNEA,N_AIR,N_AQ);
+  var yi=y+u*(X_IRIS-x);
+  if(Math.abs(yi)>rp){ pts.push([X_IRIS,yi]); return {pts:pts,blocked:true}; }
+  var S=[[X_LENS,L.R1,N_AQ,N_LENS],[X_LENS+L.t,L.R2,N_LENS,N_VIT]];
+  for(var i=0;i<2;i++){ h=surfHit(x,y,u,S[i][0],S[i][1]); pts.push([h.x,h.y]); x=h.x;y=h.y; u=refr(u,y,S[i][1],S[i][2],S[i][3]); }
+  var xF=x-y/u, hit=retinaHit(G,x,y,u);
+  pts.push([hit.x,hit.y]);
+  return {pts:pts, blocked:false, xF:xF, hit:hit};
+}
+
+// powers (dioptres)
+function lensPower(L){
+  var P1=(N_LENS-N_AQ)/L.R1, P2=(N_VIT-N_LENS)/L.R2;
+  return 1000*(P1+P2-(L.t/N_LENS)*P1*P2);
+}
+function eyePower(L){ // paraxial ray through vertex planes
+  var y=1,u=0;
+  u=refr(u,y,R_CORNEA,N_AIR,N_AQ); y+=u*X_LENS;
+  u=refr(u,y,L.R1,N_AQ,N_LENS); y+=u*L.t;
+  u=refr(u,y,L.R2,N_LENS,N_VIT);
+  return -1000*N_VIT*u/1;
+}
+
+// ---------- SVG helpers ----------
+function f(n){ return (Math.round(n*1000)/1000).toString(); }
+function poly(pts){ var s=""; for(var i=0;i<pts.length;i++) s+=(i?"L":"M")+f(pts[i][0])+" "+f(pts[i][1]); return s; }
+function el(tag,attrs,inner){ var s="<"+tag; for(var k in attrs) s+=" "+k+'="'+attrs[k]+'"'; return s+(inner!==undefined? ">"+inner+"</"+tag+">" : "/>"); }
+
+function lensPath(L){
+  var a=[],p=[],n=36,i,y;
+  for(i=0;i<=n;i++){ y=-L.h+2*L.h*i/n; a.push([sagX(X_LENS,L.R1,y),y]); }
+  for(i=0;i<=n;i++){ y=L.h-2*L.h*i/n; p.push([sagX(X_LENS+L.t,L.R2,y),y]); }
+  var mx=(a[n][0]+p[0][0])/2, ex=0.42;
+  var d="M"+f(a[0][0])+" "+f(a[0][1]);
+  for(i=1;i<=n;i++) d+="L"+f(a[i][0])+" "+f(a[i][1]);
+  d+="Q"+f(mx)+" "+f(L.h+ex)+" "+f(p[0][0])+" "+f(p[0][1]);
+  for(i=1;i<=n;i++) d+="L"+f(p[i][0])+" "+f(p[i][1]);
+  d+="Q"+f(mx)+" "+f(-L.h-ex)+" "+f(a[0][0])+" "+f(a[0][1])+"Z";
+  return {d:d, eq:[mx, L.h+0.2], front:a, back:p};
+}
+
+function label(txt,tx,ty,px,py,anchor,opts){
+  opts=opts||{};
+  var sx=tx, sy=ty-0.42;
+  if(anchor==="end") sx=tx+0.35;
+  if(anchor==="start") sx=tx-0.35;
+  if(anchor==="middle") sy= (py>ty)? ty+0.45 : ty-1.35;
+  var col=opts.color||"#1d2433", fs=opts.size||1.18;
+  return el("line",{x1:f(sx),y1:f(sy),x2:f(px),y2:f(py),stroke:col,"stroke-width":"0.07","stroke-opacity":".75"})+
+         el("circle",{cx:f(px),cy:f(py),r:"0.17",fill:col})+
+         el("text",{x:f(tx),y:f(ty),"font-size":fs,"text-anchor":anchor,fill:col,"font-weight":opts.weight||"600",
+            "paint-order":"stroke",stroke:"#ffffff","stroke-width":"0.38","stroke-linejoin":"round"},txt);
+}
+
+// ---------- Render ----------
+var scene=document.getElementById("scene");
+function render(){
+  var s=state.acc, L=lensAt(s), G=geom(state.eye), rp=state.rp;
+  var bright=(state.logL+3)/7.5; // 0..1
+  var out="";
+
+  // sclera (outer wall)
+  out+=el("ellipse",{cx:f(G.cx),cy:"0",rx:f(G.a),ry:f(G.b),fill:"#fbfbf8",stroke:"#9aa1ad","stroke-width":"0.12"});
+  // vitreous
+  out+=el("ellipse",{cx:f(G.cx),cy:"0",rx:f(G.ar),ry:f(G.br),fill:"#eef5fa"});
+  // aqueous (anterior chamber)
+  out+=el("circle",{cx:"7.55",cy:"0",r:"7.0",fill:"#eef5fa","clip-path":"url(#clipAq)"});
+
+  // retina (with optic disc gap)
+  var tTop=Math.acos(Math.max(-1,Math.min(1,(7.2-G.cx)/G.ar)));
+  var r1=[],r2=[],t,i;
+  for(i=0;i<=60;i++){ t=-tTop+(0.2+tTop)*i/60; r1.push(retinaPt(G,t)); }
+  for(i=0;i<=40;i++){ t=0.42+(tTop-0.42)*i/40; r2.push(retinaPt(G,t)); }
+  out+=el("path",{d:poly(r1),fill:"none",stroke:"#c0392b","stroke-width":"0.38","stroke-linecap":"round"});
+  out+=el("path",{d:poly(r2),fill:"none",stroke:"#c0392b","stroke-width":"0.38","stroke-linecap":"round"});
+
+  // optic nerve
+  var dir=[Math.cos(0.3),Math.sin(0.3)], N1=retinaPt(G,0.2), N2=retinaPt(G,0.42), len=8;
+  var N3=[N2[0]+len*dir[0],N2[1]+len*dir[1]], N4=[N1[0]+len*dir[0],N1[1]+len*dir[1]];
+  out+=el("path",{d:poly([N1,N4,N3,N2])+"Z",fill:"url(#gNerve)"});
+  out+=el("path",{d:poly([N1,N4]),stroke:"#a8862c","stroke-width":"0.12",fill:"none"});
+  out+=el("path",{d:poly([N2,N3]),stroke:"#a8862c","stroke-width":"0.12",fill:"none"});
+  for(i=1;i<4;i++){ var fr=i/4, A=[N1[0]+(N2[0]-N1[0])*fr, N1[1]+(N2[1]-N1[1])*fr];
+    out+=el("path",{d:poly([A,[A[0]+len*dir[0],A[1]+len*dir[1]]]),stroke:"#d4b14f","stroke-width":"0.05",fill:"none"}); }
+
+  // cornea
+  var ca=[],cp=[],y;
+  for(i=0;i<=40;i++){ y=-G.jy+2*G.jy*i/40; ca.push([corneaX(y),y]); }
+  for(i=0;i<=40;i++){ y=G.jy-2*G.jy*i/40; cp.push([7.55-Math.sqrt(49-y*y)+0.0,y]); }
+  out+=el("path",{d:poly(ca.concat(cp))+"Z",fill:"#cfe6f5","fill-opacity":".85",stroke:"#5b8db3","stroke-width":"0.1"});
+
+  // ciliary muscles + suspensory ligaments
+  var lp=lensPath(L), zon="", cil="", cilPts={};
+  [-1,1].forEach(function(sg){
+    var base=[], x;
+    for(x=3.3;x<=6.8;x+=0.15) base.push([x, sg*(wallY(G,x)+0.25)]);
+    var ax=4.75+0.2*s, ay=sg*(wallY(G,4.75)-1.05-0.6*s);
+    var shape=base.concat([[6.3,sg*(wallY(G,6.3)-0.3)],[ax+0.8,ay+sg*0.4],[ax,ay],[ax-0.75,ay+sg*0.5],[3.4,sg*(wallY(G,3.4)-0.05)]]);
+    cil+=el("path",{d:poly(shape)+"Z",fill:"url(#gMuscle)",stroke:"#8e2f37","stroke-width":"0.09","stroke-linejoin":"round"});
+    // muscle fibre hint
+    cil+=el("path",{d:poly([[ax+0.5,ay+sg*0.4],[6.0,sg*(wallY(G,6.0)-0.05)]]),stroke:"#f2b5b8","stroke-width":"0.06","stroke-opacity":".8"});
+    cil+=el("path",{d:poly([[ax-0.3,ay+sg*0.5],[4.4,sg*(wallY(G,4.4)-0.05)]]),stroke:"#f2b5b8","stroke-width":"0.06","stroke-opacity":".8"});
+    if(sg<0) cilPts.top=[ax+0.6,ay-0.9];
+    // zonules
+    var anchors=[[ax-0.5,ay+sg*0.35],[ax,ay+sg*0.05],[ax+0.55,ay+sg*0.25]];
+    var hL=L.h, targets=[[sagX(X_LENS,L.R1,hL*0.9),sg*hL*0.9],[lp.eq[0],sg*(hL+0.25)],[sagX(X_LENS+L.t,L.R2,hL*0.88),sg*hL*0.88]];
+    for(var k=0;k<3;k++){
+      var P=anchors[k], Q=targets[k], mx=(P[0]+Q[0])/2, my=(P[1]+Q[1])/2;
+      var slack=0.55*s*(k===1?1:0.8);
+      zon+=el("path",{d:"M"+f(P[0])+" "+f(P[1])+"Q"+f(mx+(k-1)*0.2*s)+" "+f(my+sg*slack)+" "+f(Q[0])+" "+f(Q[1]),
+        fill:"none",stroke:"#7a7f8c","stroke-width":"0.055","stroke-dasharray":s>0.4?"0.25 0.12":"none"});
+    }
+    if(sg<0){ cilPts.zon=[(anchors[1][0]+targets[1][0])/2,(anchors[1][1]+targets[1][1])/2+(-slack*0.5)]; }
+  });
+  out+=zon+cil;
+
+  // lens
+  out+=el("path",{d:lp.d,fill:"url(#gLens)",stroke:"#b0893a","stroke-width":"0.11"});
+
+  // iris
+  var root=wallY(G,3.4)+0.3;
+  [-1,1].forEach(function(sg){
+    var pts=[[X_IRIS-0.02,sg*rp],[X_IRIS-0.1,sg*(rp+(root-rp)*0.45)],[X_IRIS-0.05,sg*root],[3.55,sg*root],[3.5,sg*(rp+(root-rp)*0.5)],[3.32,sg*(rp+0.25)],[3.2,sg*rp]];
+    out+=el("path",{d:poly(pts)+"Z",fill:"#5a7fa6",stroke:"#2f4d6e","stroke-width":"0.08","stroke-linejoin":"round"});
+  });
+
+  // ---------- light ----------
+  var aBeam=0.10+0.55*bright, aLine=0.15+0.65*bright;
+  var light="";
+  if(state.beam){
+    for(y=-8.25;y<=8.26;y+=0.75){
+      var tr=trace(y,L,G,rp);
+      light+=el("path",{d:poly(tr.pts),fill:"none",stroke:"#e09a12","stroke-width":"0.06","stroke-opacity":f(aLine)});
+    }
+    var e1=trace(-rp*0.999,L,G,rp), e2=trace(rp*0.999,L,G,rp);
+    if(!e1.blocked&&!e2.blocked){
+      light+=el("path",{d:poly(e1.pts.concat(e2.pts.slice().reverse()).slice(1))+"Z",fill:"#ffd34d","fill-opacity":f(aBeam*0.7),stroke:"none"});
+    }
+  }
+  out+=light;
+
+  // the two highlighted rays
+  var yr=0.72*rp, R=[trace(-yr,L,G,rp),trace(yr,L,G,rp)], xF=(R[0].xF+R[1].xF)/2, rays="";
+  R.forEach(function(r){
+    rays+=el("path",{d:poly(r.pts),fill:"none",stroke:"#d1342f","stroke-width":"0.15","stroke-linejoin":"round"});
+    var y0=r.pts[0][1];
+    rays+=el("path",{d:"M"+f(-9.4)+" "+f(y0-0.42)+"L"+f(-8.4)+" "+f(y0)+"L"+f(-9.4)+" "+f(y0+0.42)+"Z",fill:"#d1342f"});
+    if(r.xF>r.hit.x+0.02){
+      rays+=el("path",{d:poly([[r.hit.x,r.hit.y],[r.xF,0]]),stroke:"#d1342f","stroke-width":"0.1","stroke-dasharray":"0.3 0.2",fill:"none"});
+    }
+  });
+  var dF=xF-G.RETX, onR=Math.abs(dF)<=0.15;
+  rays+=el("circle",{cx:f(xF),cy:"0",r:"0.3",fill:dF>0.15?"#ffffff":"#d1342f",stroke:"#d1342f","stroke-width":"0.1"});
+  rays+=el("text",{x:f(xF-0.5),y:"-0.8","font-size":"1.0","text-anchor":"end",fill:"#a3201c","font-weight":"700","paint-order":"stroke",stroke:"#fff","stroke-width":"0.3"},"F");
+  out+=rays;
+
+  // pupil marker
+  out+=el("path",{d:"M2.25 "+f(-rp)+"L2.25 "+f(rp),stroke:"#1d2433","stroke-width":"0.06","stroke-dasharray":"0.2 0.15"});
+  out+=el("path",{d:"M1.95 "+f(-rp)+"L2.55 "+f(-rp)+"M1.95 "+f(rp)+"L2.55 "+f(rp),stroke:"#1d2433","stroke-width":"0.08"});
+
+  // ---------- labels ----------
+  if(state.labels){
+    var lb="";
+    lb+=el("text",{x:"-12.6",y:"-9.0","font-size":"0.95",fill:"#9a6a06","font-style":"italic"},"parallel light");
+    lb+=el("text",{x:"-12.6",y:"-7.9","font-size":"0.95",fill:"#9a6a06","font-style":"italic"},"from a distant object");
+    lb+=label("Cornea",-7,-11.6,corneaX(-4.6),-4.6,"end");
+    lb+=label("Pupil",-7,10.0,2.25,rp*0.55,"end");
+    lb+=label("Iris",-7,12.6,X_IRIS+0.25,(rp+root)/2+0.1,"end");
+    lb+=label("Ciliary muscles",3.6,-14.3,cilPts.top[0],cilPts.top[1]+0.6,"middle");
+    lb+=label("Suspensory ligaments",14.2,-14.3,cilPts.zon[0],cilPts.zon[1],"middle",{size:0.92,color:"#5d6577",weight:"500"});
+    lb+=label("Lens",6.2,14.4,lp.eq[0]+0.1,L.h*0.6,"middle");
+    var rt=retinaPt(G,-0.95);
+    lb+=label("Retina",26,-14.3,rt[0],rt[1],"middle");
+    var nm=[(N1[0]+N2[0])/2+4.5*dir[0],(N1[1]+N2[1])/2+4.5*dir[1]];
+    lb+=label("Optic nerve",23.5,14.4,nm[0],nm[1],"middle");
+    out+=lb;
+  }
+  scene.innerHTML=out;
+
+  // ---------- readouts ----------
+  var PL=lensPower(L), PE=eyePower(L);
+  document.getElementById("pLens").textContent="≈ "+PL.toFixed(0)+" D";
+  document.getElementById("pEye").textContent="≈ "+PE.toFixed(0)+" D";
+  document.getElementById("pFocus").textContent= onR? "on the retina" : (Math.abs(dF).toFixed(1)+" mm "+(dF<0?"in front of":"behind")+" retina");
+  var st=document.getElementById("status");
+  st.className="status "+(onR?"ok":"warn");
+  document.getElementById("statusText").textContent= onR
+    ? "Sharp image: the rays focus on the retina."
+    : (dF<0 ? "Blurred image: the rays focus "+Math.abs(dF).toFixed(1)+" mm in front of the retina."
+            : "Blurred image: the rays would focus "+dF.toFixed(1)+" mm behind the retina.");
+
+  var D=2*rp, Lum=Math.pow(10,state.logL);
+  document.getElementById("lDesc").textContent=sceneName(state.logL);
+  document.getElementById("lVal").textContent=fmtLum(Lum)+" cd m⁻²";
+  document.getElementById("lPupil").textContent=D.toFixed(1)+" mm";
+  document.getElementById("lIn").textContent=Math.round(100*D*D/(D_MAX*D_MAX))+"% of max";
+
+  // retinal spot
+  var bl=null;
+  var E1=trace(-rp*0.999,L,G,rp), E2=trace(rp*0.999,L,G,rp);
+  if(!E1.blocked&&!E2.blocked) bl=Math.abs(E2.hit.y-E1.hit.y);
+  drawSpot(bl||0, Lum, rp);
+
+  explain();
+}
+
+function sceneName(l){
+  if(l<-2) return "Starlight";
+  if(l<-0.5) return "Moonlight";
+  if(l<1) return "Dim room";
+  if(l<2.5) return "Indoor lighting";
+  if(l<3.6) return "Cloudy daylight";
+  return "Bright sunlight";
+}
+function fmtLum(v){
+  if(v>=1000||v<0.1){ var e=Math.floor(Math.log10(v)), m=v/Math.pow(10,e); return m.toFixed(1)+"×10"+sup(e); }
+  return v>=10? v.toFixed(0) : v.toFixed(1);
+}
+function sup(n){ var m={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"}; return String(n).split("").map(function(c){return m[c];}).join(""); }
+
+function drawSpot(blur, Lum, rp){
+  var r=Math.max(blur/2,0.035);
+  var q=Math.log10(Lum*rp*rp/(r*r)); // relative retinal illuminance (log)
+  var b=Math.max(0.06,Math.min(1,(q+3)/11.6));
+  var html='<defs><radialGradient id="sp"><stop offset="0" stop-color="#fffbe6" stop-opacity="'+f(b)+'"/><stop offset=".75" stop-color="#ffe27a" stop-opacity="'+f(b*0.85)+'"/><stop offset="1" stop-color="#ffcc33" stop-opacity="0"/></radialGradient></defs>';
+  html+='<rect x="-1" y="-1" width="2" height="2" fill="#5a1712"/>';
+  html+='<circle cx="0" cy="0" r="'+f(Math.min(r*1.15,1.6))+'" fill="url(#sp)"/>';
+  html+='<path d="M-0.9 0.85 L-0.4 0.85" stroke="#fff" stroke-width="0.03"/><text x="-0.65" y="0.78" font-size="0.14" fill="#fff" text-anchor="middle">0.5 mm</text>';
+  document.getElementById("spot").innerHTML=html;
+  document.getElementById("spotText").innerHTML = blur<0.03
+    ? "A sharp, bright <b>point</b> image."
+    : "Blur spot ≈ <b>"+blur.toFixed(2)+" mm</b> across. A smaller pupil gives a smaller blur spot.";
+}
+
+function explain(){
+  var hint={normal:"Normal length: relaxed lens focuses distant light on the retina.",
+            long:"Eyeball too short: relaxed lens focuses behind the retina.",
+            short:"Eyeball too long: relaxed lens focuses in front of the retina."};
+  document.getElementById("eyeHint").textContent=hint[state.eye];
+}
+
+// ---------- Controls & animation ----------
+var acc=document.getElementById("acc"), lum=document.getElementById("lum");
+acc.addEventListener("input",function(){ state.acc=acc.value/100; render(); });
+lum.addEventListener("input",function(){ state.logL=parseFloat(lum.value); kick(); });
+Array.prototype.forEach.call(document.querySelectorAll('input[name=eye]'),function(r){
+  r.addEventListener("change",function(){ if(r.checked){ state.eye=r.value; render(); } });
+});
+document.getElementById("tLabels").addEventListener("change",function(e){ state.labels=e.target.checked; render(); });
+document.getElementById("tBeam").addEventListener("change",function(e){ state.beam=e.target.checked; render(); });
+document.getElementById("reset").addEventListener("click",function(){
+  acc.value=0; lum.value=1.6; state.acc=0; state.logL=1.6; state.eye="normal";
+  document.querySelector('input[name=eye][value=normal]').checked=true;
+  document.getElementById("tLabels").checked=true; document.getElementById("tBeam").checked=true;
+  state.labels=true; state.beam=true; kick();
+});
+
+var reduce=window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var running=false, last=0;
+function kick(){ if(!running){ running=true; last=performance.now(); requestAnimationFrame(step); } }
+function step(now){
+  var dt=Math.min(0.1,(now-last)/1000); last=now;
+  var target=pupilD(state.logL)/2;
+  var tau = target<state.rp ? 0.3 : 1.2;       // constriction faster than dilation
+  if(reduce) tau=0.001;
+  state.rp += (target-state.rp)*(1-Math.exp(-dt/tau));
+  if(Math.abs(target-state.rp)<0.002){ state.rp=target; running=false; }
+  render();
+  if(running) requestAnimationFrame(step);
+}
+
+state.rp=pupilD(state.logL)/2;
+render();
+})();
+</script>
+</body>
+</html>
