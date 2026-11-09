@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AC Generator Simulation</title>
+<style>
+  :root{
+    --paper:#fbfaf6; --ink:#24303c; --muted:#6b7682; --line:#d9d6cc;
+    --north:#c0392b; --south:#2c6fbb; --copper:#c26a1e; --brass:#b08a1c;
+    --carbon:#3d3d3d; --field:#8e5fc2; --current:#e0402a; --flux:#2a9d6f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+       font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:18px 24px 6px}
+  h1{margin:0;font-size:1.45rem;font-weight:650;letter-spacing:.01em}
+  header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+  main{display:grid;align-items:start;grid-template-columns:minmax(0,1fr) 320px;gap:16px;padding:12px 24px 24px;max-width:1300px}
+  .card{background:#fff;border:1.5px solid var(--line);border-radius:10px}
+  #genWrap{position:relative}
+  canvas{display:block;width:100%}
+  #gen{aspect-ratio:900/600}
+  #plot{aspect-ratio:900/330}
+  .plotCard{grid-column:1 / -1}
+  aside{padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+  .ctl label{display:flex;justify-content:space-between;font-weight:600;font-size:.93rem}
+  .ctl output{font-variant-numeric:tabular-nums;color:var(--copper);font-weight:650}
+  .ctl small{color:var(--muted);display:block;margin-top:1px}
+  input[type=range]{width:100%;accent-color:var(--copper);margin:6px 0 0}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{font:inherit;font-size:.9rem;padding:6px 12px;border-radius:7px;border:1.5px solid var(--ink);
+         background:#fff;color:var(--ink);cursor:pointer}
+  button:hover{background:#f1efe8}
+  button.primary{background:var(--ink);color:#fff}
+  .checks label{display:flex;align-items:center;gap:8px;font-size:.92rem;margin:3px 0}
+  select{font:inherit;font-size:.9rem;padding:3px 6px;border-radius:6px;border:1.5px solid var(--line)}
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  td{padding:3px 0;border-bottom:1px dashed var(--line)}
+  td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  .eq{background:#f6f4ee;border-radius:8px;padding:10px 12px;font-size:.88rem;color:#3a4652}
+  .eq b{font-family:Georgia,"Times New Roman",serif;font-style:italic;font-weight:normal;font-size:1.05rem}
+  hr{border:none;border-top:1.5px solid var(--line);margin:0}
+  @media (max-width:900px){ main{grid-template-columns:1fr;padding:10px} header{padding:14px 12px 0} .plotCard{order:2} aside{order:3} }
+</style>
+</head>
+<body>
+<header>
+  <h1>The AC Generator</h1>
+  <p>A coil turns in the field between two stator magnets. Slip rings and carbon brushes take the induced emf out to a centre-zero voltmeter. The graph plots that output voltage against the angle of the coil.</p>
+</header>
+
+<main>
+  <div class="card" id="genWrap"><canvas id="gen" aria-label="Animated diagram of an AC generator"></canvas></div>
+
+  <aside class="card">
+    <div class="ctl">
+      <label for="sF">Rotation speed <output id="oF"></output></label>
+      <input id="sF" type="range" min="0" max="2" step="0.05" value="0.5">
+      <small>Revolutions per second (frequency <i>f</i>)</small>
+    </div>
+    <div class="ctl">
+      <label for="sB">Stator field strength <output id="oB"></output></label>
+      <input id="sB" type="range" min="0.05" max="0.5" step="0.01" value="0.25">
+      <small>Magnetic flux density <i>B</i></small>
+    </div>
+    <div class="ctl">
+      <label for="sN">Turns on coil <output id="oN"></output></label>
+      <input id="sN" type="range" min="1" max="200" step="1" value="100">
+      <small>Coil area fixed at <i>A</i> = 10 cm × 10 cm = 0.010 m²</small>
+    </div>
+    <div class="btns">
+      <button id="bPlay" class="primary">Pause</button>
+      <button id="bStep">Step +15°</button>
+      <button id="bReset">Reset to 0°</button>
+      <button id="bClear">Clear graph</button>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="cLab" checked> Show labels</label>
+      <label><input type="checkbox" id="cCur" checked> Show current direction</label>
+      <label><input type="checkbox" id="cFlux"> Show flux linkage <i>NΦ</i> on graph</label>
+      <label>Voltage axis:
+        <select id="selV">
+          <option value="1">±1 V</option><option value="2">±2 V</option>
+          <option value="5" selected>±5 V</option><option value="10">±10 V</option>
+          <option value="15">±15 V</option>
+        </select></label>
+    </div>
+    <hr>
+    <table>
+      <tr><td>Coil angle θ</td><td id="rTh"></td></tr>
+      <tr><td>Output voltage <i>V</i></td><td id="rV"></td></tr>
+      <tr><td>Peak voltage <i>V</i><sub>0</sub> = <i>NBAω</i></td><td id="rV0"></td></tr>
+      <tr><td>Angular speed ω</td><td id="rW"></td></tr>
+      <tr><td>Period <i>T</i></td><td id="rT"></td></tr>
+    </table>
+    <div class="eq">
+      <b>V</b> = <b>NBAω</b> sin θ &nbsp;&nbsp; where &nbsp;<b>ω</b> = 2π<b>f</b><br>
+      θ = 0° when the coil plane is perpendicular to the field. The flux linkage is then a maximum, but it is not changing, so <b>V</b> = 0.
+      The output peaks at 90° and 270°, when the coil sides cut the field lines fastest.
+    </div>
+  </aside>
+
+  <div class="card plotCard"><canvas id="plot" aria-label="Graph of output voltage against coil angle"></canvas></div>
+</main>
+
+<script>
+(() => {
+"use strict";
+// ---------- constants ----------
+const AREA = 0.01;                       // m²
+const C = { ink:"#24303c", muted:"#6b7682", grid:"#ebe8df", north:"#c0392b", south:"#2c6fbb",
+  copper:"#c26a1e", brass:"#b08a1c", carbon:"#3d3d3d", field:"#8e5fc2", current:"#e0402a",
+  flux:"#2a9d6f", axle:"#8a929a", paper:"#ffffff" };
+
+// ---------- state ----------
+const st = { theta:0, f:0.5, B:0.25, N:100, playing:true, labels:true, showCur:true, showFlux:false,
+  vScale:5, cur:[], prev:[] };
+
+const $ = id => document.getElementById(id);
+const gen = $("gen"), plot = $("plot");
+const g = gen.getContext("2d"), p = plot.getContext("2d");
+
+// ---------- physics ----------
+const omega = () => 2*Math.PI*st.f;
+const V0 = () => st.N*st.B*AREA*omega();
+const vAt = th => V0()*Math.sin(th*Math.PI/180);
+const fluxAt = th => st.N*st.B*AREA*Math.cos(th*Math.PI/180);
+
+// ---------- oblique (cabinet-style) projection ----------
+// x → right (field direction N→S), y → up, z → towards viewer (drawn down-right)
+const KX=0.30, KY=0.36;
+const view = { s:100, ox:0, oy:0 };
+function rot(x,y,z){ return [x+KX*z, y-KY*z, -KX*x+KY*y+z]; }   // [screen x, screen y(up), depth]
+function P(x,y,z){ const r=rot(x,y,z); return {x:view.ox+view.s*r[0], y:view.oy-view.s*r[1], d:r[2]}; }
+
+// geometry (world units)
+const a=0.8, Lh=1.0;                              // coil half-width, half-length
+const MAG = { x0:1.12, x1:1.85, y:0.95, z:1.05 };  // magnet blocks
+const RR=0.25, RT=0.08, ZA=2.15, ZB=3.45, RL=0.1; // ring radius, half-thickness, positions, lead radius
+const BRUSH_H=0.34;
+
+function fitView(W,H){
+  const pts=[];
+  for(const sx of [-1,1]) for(const y of [-MAG.y,MAG.y]) for(const z of [-MAG.z,MAG.z]) pts.push([sx*MAG.x1,y,z]);
+  pts.push([0,-RR-BRUSH_H-0.25,ZB],[0,0,ZB+0.6],[0,0,-1.7]);
+  let mnx=1e9,mxx=-1e9,mny=1e9,mxy=-1e9;
+  for(const q of pts){const r=rot(...q); mnx=Math.min(mnx,r[0]);mxx=Math.max(mxx,r[0]);mny=Math.min(mny,-r[1]);mxy=Math.max(mxy,-r[1]);}
+  const box={l:150,r:W-60,t:70,b:H-95};
+  view.s=Math.min((box.r-box.l)/(mxx-mnx),(box.b-box.t)/(mxy-mny));
+  view.ox=(box.l+box.r)/2 - view.s*(mnx+mxx)/2;
+  view.oy=(box.t+box.b)/2 - view.s*(mny+mxy)/2;
+}
+
+// ---------- drawing helpers ----------
+function path(ctx,pts,close){ ctx.beginPath(); pts.forEach((q,i)=> i?ctx.lineTo(q.x,q.y):ctx.moveTo(q.x,q.y)); if(close) ctx.closePath(); }
+function line3(ctx,A,B){ const a1=P(...A), b1=P(...B); ctx.beginPath(); ctx.moveTo(a1.x,a1.y); ctx.lineTo(b1.x,b1.y); ctx.stroke(); }
+function arrowHead(ctx,x,y,ang,size,col){
+  ctx.save(); ctx.fillStyle=col; ctx.translate(x,y); ctx.rotate(ang);
+  ctx.beginPath(); ctx.moveTo(size,0); ctx.lineTo(-size*0.8,size*0.6); ctx.lineTo(-size*0.8,-size*0.6); ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function arrow3(ctx,A,B,col,size){ // arrowhead at midpoint of A->B, pointing to B
+  const a1=P(...A), b1=P(...B); const mx=(a1.x+b1.x)/2, my=(a1.y+b1.y)/2;
+  arrowHead(ctx,mx,my,Math.atan2(b1.y-a1.y,b1.x-a1.x),size,col);
+}
+
+function drawBox(ctx,x0,x1,y0,y1,z0,z1,stroke,fill,letter){
+  const v=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],[x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
+  const faces=[ {i:[0,1,2,3],n:[0,0,-1]},{i:[4,5,6,7],n:[0,0,1]},{i:[0,1,5,4],n:[0,-1,0]},
+                {i:[3,2,6,7],n:[0,1,0]},{i:[0,3,7,4],n:[-1,0,0]},{i:[1,2,6,5],n:[1,0,0]} ];
+  const pv=v.map(q=>P(...q));
+  ctx.lineWidth=2; ctx.lineJoin="round";
+  for(const f of faces){
+    const d=rot(...f.n)[2]; if(d<=0) continue;
+    path(ctx,f.i.map(k=>pv[k]),true);
+    ctx.fillStyle=fill(d); ctx.fill(); ctx.strokeStyle=stroke; ctx.stroke();
+  }
+  if(letter){ // on front face (+z)
+    const c=P((x0+x1)/2,(y0+y1)/2,z1);
+    ctx.fillStyle=stroke; ctx.font="bold "+Math.round(view.s*0.42)+"px system-ui,sans-serif";
+    ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(letter,c.x,c.y);
+  }
+}
+
+function ring(ctx,z,col){
+  const N=56, front=[], back=[];
+  for(let i=0;i<=N;i++){ const t=i/N*2*Math.PI; front.push(P(RR*Math.cos(t),RR*Math.sin(t),z+RT)); back.push(P(RR*Math.cos(t),RR*Math.sin(t),z-RT)); }
+  ctx.lineWidth=2.2; ctx.strokeStyle=col;
+  // band fill
+  ctx.fillStyle="rgba(214,175,60,0.22)";
+  path(ctx,back,true); ctx.fill(); ctx.stroke();
+  // silhouette lines between front and back
+  const t0=Math.atan2(-KX,-KY);
+  for(const t of [t0, t0+Math.PI]){
+    line3(ctx,[RR*Math.cos(t),RR*Math.sin(t),z-RT],[RR*Math.cos(t),RR*Math.sin(t),z+RT]);
+  }
+  ctx.fillStyle="rgba(214,175,60,0.30)"; path(ctx,front,true); ctx.fill(); ctx.stroke();
+  // inner bore
+  const inner=[]; for(let i=0;i<=40;i++){const t=i/40*2*Math.PI; inner.push(P(RR*0.55*Math.cos(t),RR*0.55*Math.sin(t),z+RT));}
+  ctx.lineWidth=1.4; path(ctx,inner,true); ctx.fillStyle="#fff"; ctx.fill(); ctx.stroke();
+}
+
+function brush(ctx,z){
+  const y1=-RR+0.005, y0=-RR-BRUSH_H;
+  drawBox(ctx,-0.09,0.09,y0,y1,z-0.065,z+0.065,C.carbon,d=>`rgba(60,60,60,${0.35+0.35*d})`);
+  // spring + holder line under the brush
+  const top=P(0,y0,z), n=7, pts=[];
+  for(let i=0;i<=n;i++){ const yy=y0-0.02-i*0.03; pts.push(P((i%2?0.06:-0.06)*(i>0&&i<n?1:0),yy,z)); }
+  g.lineWidth=1.4; g.strokeStyle=C.muted; path(g,pts,false); g.stroke();
+  return P(0,y0-0.02-n*0.03,z);
+}
+
+// ---------- generator scene ----------
+function drawGenerator(){
+  const dpr=window.devicePixelRatio||1, W=900, H=600;
+  const cw=gen.clientWidth; gen.width=Math.round(cw*dpr); gen.height=Math.round(cw*H/W*dpr);
+  g.setTransform(gen.width/W,0,0,gen.height/H,0,0);
+  g.clearRect(0,0,W,H); g.fillStyle=C.paper; g.fillRect(0,0,W,H);
+  fitView(W,H);
+
+  const th=st.theta*Math.PI/180, phi=th+Math.PI/2;   // side A position angle
+  const V=vAt(st.theta), sgn=Math.sign(V), mag=V0()>0?Math.abs(V)/V0():0;
+  const cA=Math.cos(phi), sA=Math.sin(phi);
+
+  // --- South magnet (far side) ---
+  drawBox(g,MAG.x0,MAG.x1,-MAG.y,MAG.y,-MAG.z,MAG.z,C.south,d=>`rgba(52,120,200,${0.08+0.16*d})`,"S");
+
+  // --- field lines (density ∝ B) ---
+  const rows=Math.max(1,Math.round(st.B/0.5*5));
+  g.strokeStyle=C.field; g.lineWidth=1.6; g.setLineDash([7,5]);
+  const fieldPts=[];
+  for(let r=0;r<rows;r++){
+    const y= rows===1?0: -0.72+1.44*r/(rows-1);
+    for(const z of [-0.65,0.65]){ line3(g,[-MAG.x0,y,z],[MAG.x0,y,z]); fieldPts.push([y,z]); }
+  }
+  g.setLineDash([]);
+  for(const [y,z] of fieldPts) arrow3(g,[-MAG.x0,y,z],[-0.2*MAG.x0,y,z],C.field,6);
+
+  // --- axle (back part) and rotation arrow ---
+  g.strokeStyle=C.axle; g.lineWidth=4; g.lineCap="round";
+  line3(g,[0,0,-1.7],[0,0,Lh]);
+  { // curved arrow showing rotation sense, at back of axle
+    const pts=[]; const r=0.24, z=-1.5, start=phi-0.3;
+    for(let i=0;i<=24;i++){ const t=start+i/24*1.25*Math.PI; pts.push(P(r*Math.cos(t),r*Math.sin(t),z)); }
+    g.lineWidth=1.8; g.strokeStyle=C.muted; path(g,pts,false); g.stroke();
+    const e=pts[pts.length-1], e0=pts[pts.length-3]; arrowHead(g,e.x,e.y,Math.atan2(e.y-e0.y,e.x-e0.x),7,C.muted);
+  }
+
+  // --- coil ---
+  const nd=Math.max(1,Math.min(8,Math.round(Math.sqrt(st.N)/1.75)));
+  g.strokeStyle=C.copper; g.lineCap="round"; g.lineJoin="round";
+  g.lineWidth = nd>4?1.6:2.2;
+  const leadA=[RL*cA,RL*sA,Lh+0.28], leadB=[-RL*cA,-RL*sA,Lh+0.28];
+  for(let k=0;k<nd;k++){
+    const d=(k-(nd-1)/2)*0.028, r=a+d, zb=-Lh-d;
+    const A0=[r*cA,r*sA,zb], A1=[r*cA,r*sA,Lh], B0=[-r*cA,-r*sA,zb], B1=[-r*cA,-r*sA,Lh];
+    const q=[A1,A0,B0,B1].map(v=>P(...v));
+    path(g,q,false); g.stroke();
+    line3(g,A1,leadA); line3(g,B1,leadB);
+  }
+  // leads along the axle to rings
+  g.lineWidth=2;
+  line3(g,leadA,[RL*cA,RL*sA,ZA]); line3(g,[RL*cA,RL*sA,ZA],[RR*0.8*cA,RR*0.8*sA,ZA]);
+  line3(g,leadB,[-RL*cA,-RL*sA,ZB]); line3(g,[-RL*cA,-RL*sA,ZB],[-RR*0.8*cA,-RR*0.8*sA,ZB]);
+
+  // side markers A / B
+  const pAm=P(a*cA*1.12,a*sA*1.12,0), pBm=P(-a*cA*1.12,-a*sA*1.12,0);
+  g.font="bold 15px system-ui,sans-serif"; g.textAlign="center"; g.textBaseline="middle";
+  g.fillStyle=C.copper; g.fillText("A",pAm.x,pAm.y); g.fillText("B",pBm.x,pBm.y);
+
+  // current arrows on coil
+  if(st.showCur && mag>0.06){
+    const sz=5+7*mag;
+    const A0=[a*cA,a*sA,-Lh], A1=[a*cA,a*sA,Lh], B0=[-a*cA,-a*sA,-Lh], B1=[-a*cA,-a*sA,Lh];
+    if(sgn>0){ arrow3(g,A0,A1,C.current,sz); arrow3(g,B1,B0,C.current,sz); arrow3(g,B0,A0,C.current,sz); }
+    else     { arrow3(g,A1,A0,C.current,sz); arrow3(g,B0,B1,C.current,sz); arrow3(g,A0,B0,C.current,sz); }
+  }
+
+  // --- North magnet (near side, drawn after coil) ---
+  drawBox(g,-MAG.x1,-MAG.x0,-MAG.y,MAG.y,-MAG.z,MAG.z,C.north,d=>`rgba(231,76,60,${0.10+0.16*d})`,"N");
+
+  // --- axle front, rings, brushes ---
+  g.strokeStyle=C.axle; g.lineWidth=4; line3(g,[0,0,Lh],[0,0,ZB+0.55]);
+  ring(g,ZA,C.brass); ring(g,ZB,C.brass);
+  const bA=brush(g,ZA), bB=brush(g,ZB);
+  const pRA=P(0,RR+0.12,ZA), pRB=P(0,RR+0.12,ZB);
+  g.font="bold 13px system-ui,sans-serif"; g.fillStyle=C.brass; g.textAlign="center";
+  g.fillText("A",pRA.x,pRA.y-4); g.fillText("B",pRB.x,pRB.y-4);
+
+  // --- external circuit: centre-zero voltmeter ---
+  const mr=44, mx=bA.x-175, my=bA.y-10;
+  const tL={x:mx-24,y:my+mr*0.36}, tR={x:mx+24,y:my+mr*0.36};
+  const ywA=Math.max(bA.y,bB.y)+22, ywB=ywA+20;
+  g.strokeStyle=C.ink; g.lineWidth=1.8; g.lineJoin="round";
+  path(g,[bA,{x:bA.x,y:ywA},{x:tR.x,y:ywA},tR],false); g.stroke();
+  path(g,[bB,{x:bB.x,y:ywB},{x:tL.x,y:ywB},tL],false); g.stroke();
+  g.fillStyle="#fff"; g.beginPath(); g.arc(mx,my,mr,0,2*Math.PI); g.fill(); g.stroke();
+  g.lineWidth=1.2; g.strokeStyle=C.muted;
+  for(let i=-5;i<=5;i++){ const an=-Math.PI/2+i*0.11; const r1=mr-6, r2=i%5===0?mr-16:mr-11;
+    g.beginPath(); g.moveTo(mx+r1*Math.cos(an),my+4+(r1)*Math.sin(an)); g.lineTo(mx+r2*Math.cos(an),my+4+r2*Math.sin(an)); g.stroke(); }
+  g.fillStyle=C.muted; g.font="10px system-ui,sans-serif"; g.textAlign="center"; g.textBaseline="middle";
+  g.fillText("−",mx-22,my-24); g.fillText("0",mx,my-30); g.fillText("+",mx+22,my-24);
+  const frac=Math.max(-1.08,Math.min(1.08,V/st.vScale)), na=-Math.PI/2+frac*0.55;
+  g.strokeStyle=C.current; g.lineWidth=2.2; g.beginPath(); g.moveTo(mx,my+10); g.lineTo(mx+(mr-12)*Math.cos(na),my+10+(mr-12)*Math.sin(na)); g.stroke();
+  g.fillStyle=C.ink; g.beginPath(); g.arc(mx,my+10,3,0,2*Math.PI); g.fill();
+  g.font="bold 14px system-ui,sans-serif"; g.fillText("V",mx,my+26);
+  for(const t of [tL,tR]){ g.beginPath(); g.arc(t.x,t.y,4,0,2*Math.PI); g.fillStyle="#fff"; g.fill(); g.strokeStyle=C.ink; g.lineWidth=1.5; g.stroke(); }
+  g.font="bold 11px system-ui,sans-serif"; g.fillStyle=C.brass; g.fillText("B",tL.x-11,tL.y+2); g.fillText("A",tR.x+11,tR.y+2);
+  if(st.showCur && mag>0.06){
+    const xm=(bA.x+tR.x)/2;
+    arrowHead(g,xm,ywA,sgn>0?Math.PI:0,5+6*mag,C.current);
+    arrowHead(g,(bB.x+tL.x)/2+40,ywB,sgn>0?0:Math.PI,5+6*mag,C.current);
+  }
+
+  // --- end-view inset (looking along the axle from the front) ---
+  drawEndView(g,118,H-96,44,phi,sgn,mag,true);
+
+  // --- labels ---
+  if(st.labels){
+    const L=(text,ax,ay,lx,ly,col)=>{
+      g.strokeStyle=col; g.lineWidth=1; g.setLineDash([3,3]);
+      g.beginPath(); g.moveTo(lx,ly); g.lineTo(ax,ay); g.stroke(); g.setLineDash([]);
+      g.fillStyle=col; g.beginPath(); g.arc(ax,ay,2.5,0,2*Math.PI); g.fill();
+      g.font="600 14px system-ui,sans-serif"; g.textBaseline="middle";
+      const right = lx<ax; g.textAlign= right?"right":"left";
+      const lines=text.split("\n");
+      lines.forEach((s,i)=>g.fillText(s,lx+(right?-5:5),ly+(i-(lines.length-1)/2)*16));
+    };
+    const nM=P(-MAG.x1,MAG.y,-0.6), sM=P(MAG.x1,MAG.y,-0.9);
+    L("North pole\n(stator magnet)",nM.x,nM.y,nM.x-40,nM.y-34,C.north);
+    L("South pole\n(stator magnet)",sM.x,sM.y,sM.x+30,sM.y-34,C.south);
+    const co=P(-a*cA*0.4+a*cA*0.6*0,0,0); const cb=P(0.55*a*cA - 0.45*a*cA, 0.1*a*sA, -Lh); // back-end of coil
+    const coilPt=P(a*cA*0.5-a*cA*0.5+0.35*a*cA,0.35*a*sA,-Lh);
+    L("Rotating coil\n("+st.N+(st.N===1?" turn)":" turns)"),coilPt.x,coilPt.y,coilPt.x-95,38,C.copper);
+    const fy = rows===1?0:0.72;
+    const fm=P(0.55,fy,-0.65);
+    L("Magnetic field B",fm.x,fm.y,fm.x+40,30,C.field);
+    const rB=P(RR*0.75,RR*0.75,ZB+RT), rA2=P(RR*0.75,RR*0.75,ZA+RT);
+    const lx=rB.x+105, ly=rB.y-6;
+    L("Slip rings",rB.x,rB.y,lx,ly,C.brass);
+    g.strokeStyle=C.brass; g.setLineDash([3,3]); g.beginPath(); g.moveTo(lx,ly); g.lineTo(rA2.x,rA2.y); g.stroke(); g.setLineDash([]);
+    g.fillStyle=C.brass; g.beginPath(); g.arc(rA2.x,rA2.y,2.5,0,2*Math.PI); g.fill();
+    const brB=P(0.09,-RR-0.17,ZB), brA=P(0.09,-RR-0.17,ZA);
+    const bx=brB.x+105, by=brB.y+34;
+    L("Carbon brushes",brB.x,brB.y,bx,by,C.carbon);
+    g.strokeStyle=C.carbon; g.setLineDash([3,3]); g.beginPath(); g.moveTo(bx,by); g.lineTo(brA.x,brA.y); g.stroke(); g.setLineDash([]);
+    const ax=P(0,0,ZB+0.55);
+    L("Axle",ax.x,ax.y,ax.x+105,ax.y+14,C.muted);
+    L("Centre-zero\nvoltmeter",mx-mr,my,mx-mr-24,my,C.ink);
+  }
+}
+
+// end view: circle with field arrows, coil edge-on, ⊙/⊗ current symbols
+function drawEndView(ctx,cx,cy,R,phi,sgn,mag,full){
+  ctx.save();
+  if(full){
+    ctx.fillStyle="#fff"; ctx.strokeStyle="#d9d6cc"; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.roundRect?ctx.roundRect(cx-R-46,cy-R-30,2*R+92,2*R+66,8):ctx.rect(cx-R-46,cy-R-30,2*R+92,2*R+66); ctx.fill(); ctx.stroke();
+    ctx.fillStyle=C.muted; ctx.font="11px system-ui,sans-serif"; ctx.textAlign="center";
+    ctx.fillText("End view, looking along the axle",cx,cy-R-16);
+    ctx.font="bold 13px system-ui,sans-serif";
+    ctx.fillStyle=C.north; ctx.fillText("N",cx-R-12,cy+4); ctx.fillStyle=C.south; ctx.fillText("S",cx+R+12,cy+4);
+  }
+  const lw = full?1.2:1;
+  ctx.strokeStyle=C.field; ctx.lineWidth=lw; ctx.setLineDash([4,3]);
+  for(const yy of [-0.55,0,0.55]){ ctx.beginPath(); ctx.moveTo(cx-R,cy+yy*R); ctx.lineTo(cx+R,cy+yy*R); ctx.stroke(); }
+  ctx.setLineDash([]);
+  if(full) for(const yy of [-0.55,0.55]) arrowHead(ctx,cx+R*0.75,cy+yy*R,0,4,C.field);
+  const r=R*0.72, ax=cx+r*Math.cos(phi), ay=cy-r*Math.sin(phi), bx=cx-r*Math.cos(phi), by=cy+r*Math.sin(phi);
+  ctx.strokeStyle=C.copper; ctx.lineWidth=full?3:2.2; ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+  const cr=full?7:4.5;
+  const sym=(x,y,out)=>{
+    ctx.fillStyle="#fff"; ctx.strokeStyle=C.copper; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(x,y,cr,0,2*Math.PI); ctx.fill(); ctx.stroke();
+    if(out===0) return;
+    ctx.strokeStyle=ctx.fillStyle=C.current;
+    if(out>0){ ctx.beginPath(); ctx.arc(x,y,cr*0.3,0,2*Math.PI); ctx.fill(); }
+    else { const k=cr*0.55; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(x-k,y-k); ctx.lineTo(x+k,y+k); ctx.moveTo(x+k,y-k); ctx.lineTo(x-k,y+k); ctx.stroke(); }
+  };
+  const on = (full?st.showCur:true) && mag>0.06;
+  sym(ax,ay,on?sgn:0); sym(bx,by,on?-sgn:0);
+  if(full){
+    ctx.fillStyle=C.copper; ctx.font="bold 11px system-ui,sans-serif"; ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText("A",cx+(r+15)*Math.cos(phi),cy-(r+15)*Math.sin(phi));
+    ctx.fillText("B",cx-(r+15)*Math.cos(phi),cy+(r+15)*Math.sin(phi));
+    ctx.fillStyle=C.muted; ctx.font="10px system-ui,sans-serif";
+    ctx.fillText("⊙ current towards you",cx,cy+R+14); ctx.fillText("⊗ current away from you",cx,cy+R+27);
+  }
+  ctx.restore();
+}
+
+// ---------- plot ----------
+function drawPlot(){
+  const dpr=window.devicePixelRatio||1, W=900, H=330;
+  const cw=plot.clientWidth; plot.width=Math.round(cw*dpr); plot.height=Math.round(cw*H/W*dpr);
+  p.setTransform(plot.width/W,0,0,plot.height/H,0,0);
+  p.clearRect(0,0,W,H); p.fillStyle=C.paper; p.fillRect(0,0,W,H);
+  const m={l:70,r:st.showFlux?75:30,t:22,b:92};
+  const pw=W-m.l-m.r, ph=H-m.t-m.b, y0=m.t+ph/2;
+  const X=th=>m.l+th/360*pw, Y=v=>y0 - v/st.vScale*ph/2;
+  const FMAX=1.0, YF=f=>y0 - f/FMAX*ph/2;
+
+  // grid
+  p.strokeStyle=C.grid; p.lineWidth=1;
+  for(let t=0;t<=360;t+=30){ p.beginPath(); p.moveTo(X(t),m.t); p.lineTo(X(t),m.t+ph); p.stroke(); }
+  const vs=st.vScale, step = vs<=1?0.25: vs<=2?0.5: vs<=5?1: vs<=10?2:3;
+  for(let v=-vs; v<=vs+1e-9; v+=step){ p.beginPath(); p.moveTo(m.l,Y(v)); p.lineTo(m.l+pw,Y(v)); p.stroke(); }
+  // axes
+  p.strokeStyle=C.ink; p.lineWidth=1.6;
+  p.beginPath(); p.moveTo(m.l,m.t); p.lineTo(m.l,m.t+ph); p.stroke();
+  p.beginPath(); p.moveTo(m.l,y0); p.lineTo(m.l+pw,y0); p.stroke();
+  p.fillStyle=C.ink; p.font="12px system-ui,sans-serif"; p.textAlign="right"; p.textBaseline="middle";
+  for(let v=-vs; v<=vs+1e-9; v+=step){ p.fillText((Math.abs(v)<1e-9?0:+v.toFixed(2)).toString(),m.l-7,Y(v)); }
+  p.textAlign="center"; p.textBaseline="top";
+  for(let t=0;t<=360;t+=45){ p.fillText(t+"°",X(t),m.t+ph+6); }
+  // axis titles
+  p.save(); p.translate(18,y0); p.rotate(-Math.PI/2); p.font="600 13px system-ui,sans-serif"; p.textBaseline="middle";
+  p.fillText("Output voltage V / volts",0,0); p.restore();
+  p.font="600 13px system-ui,sans-serif"; p.textBaseline="alphabetic"; p.textAlign="center";
+  p.fillText("Angle of coil θ / degrees",m.l+pw/2,H-8);
+
+  // orientation icons under the plot
+  p.font="11px system-ui,sans-serif"; p.fillStyle=C.muted;
+  for(const t of [0,90,180,270,360]){
+    const ph2=t*Math.PI/180+Math.PI/2, s=Math.sin(t*Math.PI/180), sg=Math.abs(s)<1e-6?0:Math.sign(s);
+    drawEndView(p,X(t),m.t+ph+44,14,ph2,sg*Math.sign(st.f||1),Math.abs(s),false);
+  }
+
+  // flux axis
+  if(st.showFlux){
+    p.strokeStyle=C.flux; p.lineWidth=1.4; p.beginPath(); p.moveTo(m.l+pw,m.t); p.lineTo(m.l+pw,m.t+ph); p.stroke();
+    p.fillStyle=C.flux; p.font="12px system-ui,sans-serif"; p.textAlign="left"; p.textBaseline="middle";
+    for(let f=-1; f<=1.001; f+=0.5) p.fillText((+f.toFixed(1)).toString(),m.l+pw+6,YF(f));
+    p.save(); p.translate(W-14,y0); p.rotate(Math.PI/2); p.textAlign="center"; p.font="600 13px system-ui,sans-serif";
+    p.fillText("Flux linkage NΦ / Wb-turns",0,0); p.restore();
+  }
+
+  // traces (clipped)
+  p.save(); p.beginPath(); p.rect(m.l,m.t,pw,ph); p.clip();
+  const trace=(arr,key,col,w,dash,yfn)=>{
+    if(arr.length<2) return; p.strokeStyle=col; p.lineWidth=w; p.setLineDash(dash); p.lineJoin="round";
+    p.beginPath(); arr.forEach((q,i)=>{const x=X(q.t),y=yfn(q[key]); i?p.lineTo(x,y):p.moveTo(x,y);}); p.stroke(); p.setLineDash([]);
+  };
+  if(st.showFlux){ trace(st.prev,"f","rgba(42,157,111,0.25)",2,[6,4],YF); trace(st.cur,"f",C.flux,2,[6,4],YF); }
+  trace(st.prev,"v","rgba(224,64,42,0.22)",2.5,[],Y);
+  trace(st.cur,"v",C.current,2.8,[],Y);
+  p.restore();
+
+  // marker
+  const V=vAt(st.theta), yv=Y(Math.max(-st.vScale*1.02,Math.min(st.vScale*1.02,V)));
+  p.strokeStyle="rgba(36,48,60,0.35)"; p.lineWidth=1; p.setLineDash([3,3]);
+  p.beginPath(); p.moveTo(X(st.theta),m.t); p.lineTo(X(st.theta),m.t+ph); p.stroke(); p.setLineDash([]);
+  p.fillStyle=C.current; p.strokeStyle="#fff"; p.lineWidth=2;
+  p.beginPath(); p.arc(X(st.theta),yv,6,0,2*Math.PI); p.fill(); p.stroke();
+  if(Math.abs(V)>st.vScale){
+    p.fillStyle=C.current; p.font="600 12px system-ui,sans-serif"; p.textAlign="left"; p.textBaseline="top";
+    p.fillText("Off scale: choose a larger voltage axis",m.l+8,m.t+4);
+  }
+  // legend
+  p.textAlign="right"; p.textBaseline="top"; p.font="12px system-ui,sans-serif";
+  p.fillStyle=C.current; p.fillText("— this revolution",m.l+pw-8,m.t+4);
+  p.fillStyle="rgba(224,64,42,0.5)"; p.fillText("— previous revolution",m.l+pw-8,m.t+20);
+  if(st.showFlux){ p.fillStyle=C.flux; p.fillText("- - flux linkage NΦ",m.l+pw-8,m.t+36); }
+}
+
+// ---------- readouts & controls ----------
+function readouts(){
+  $("oF").textContent=st.f.toFixed(2)+" rev/s";
+  $("oB").textContent=st.B.toFixed(2)+" T";
+  $("oN").textContent=st.N;
+  $("rTh").textContent=st.theta.toFixed(0)+"°";
+  $("rV").textContent=vAt(st.theta).toFixed(2)+" V";
+  $("rV0").textContent=V0().toFixed(2)+" V";
+  $("rW").textContent=omega().toFixed(2)+" rad/s";
+  $("rT").textContent=st.f>0?(1/st.f).toFixed(2)+" s":"—";
+}
+function record(){ st.cur.push({t:st.theta,v:vAt(st.theta),f:fluxAt(st.theta)}); }
+function advance(dDeg){
+  let th=st.theta+dDeg;
+  while(th>=360){
+    st.theta=360; record();
+    st.prev=st.cur; st.cur=[]; th-=360; st.theta=0; record();
+  }
+  st.theta=th; record();
+}
+function bindRange(id,key,parse){ $(id).addEventListener("input",e=>{ st[key]=parse(e.target.value); readouts(); render(); }); }
+bindRange("sF","f",parseFloat); bindRange("sB","B",parseFloat); bindRange("sN","N",v=>parseInt(v,10));
+$("bPlay").onclick=()=>{ st.playing=!st.playing; $("bPlay").textContent=st.playing?"Pause":"Play"; };
+$("bStep").onclick=()=>{ advance(15); readouts(); render(); };
+$("bReset").onclick=()=>{ st.theta=0; st.cur=[]; st.prev=[]; record(); readouts(); render(); };
+$("bClear").onclick=()=>{ st.cur=[]; st.prev=[]; record(); render(); };
+$("cLab").onchange=e=>{ st.labels=e.target.checked; render(); };
+$("cCur").onchange=e=>{ st.showCur=e.target.checked; render(); };
+$("cFlux").onchange=e=>{ st.showFlux=e.target.checked; render(); };
+$("selV").onchange=e=>{ st.vScale=parseFloat(e.target.value); render(); };
+
+function render(){ drawGenerator(); drawPlot(); }
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(0.05,(now-last)/1000); last=now;
+  if(st.playing && st.f>0){ advance(360*st.f*dt); readouts(); }
+  render();
+  requestAnimationFrame(loop);
+}
+// init from slider values (keeps state consistent if browser restores form values)
+st.f=parseFloat($("sF").value); st.B=parseFloat($("sB").value); st.N=parseInt($("sN").value,10);
+st.vScale=parseFloat($("selV").value);
+record(); readouts(); requestAnimationFrame(loop);
+window.addEventListener("resize",render);
+})();
+</script>
+</body>
+</html>
