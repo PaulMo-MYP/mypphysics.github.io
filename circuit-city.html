@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Circuit City</title>
+<style>
+/* VOICE: clear and classroom-practical, a physics teacher's working tool
+   IDEA: a city road map in the style of a phone map app that is secretly the circuit
+   PICTURE: the live map itself, with traffic dots and km/h readouts on every road
+   COLOUR and TYPE: map palette (beige land, yellow highways, white streets, traffic red/amber/green), map-app blue accent; system font stack (no external requests)
+   LAYOUT: map first and large, controls beside it (stacked under 900px), analogy key and caveats below */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#1b1c1f);--ink:light-dark(#202124,#e8eaed);--muted:light-dark(#5f6368,#9aa0a6);--line:light-dark(#dadce0,#3c4043);--card:light-dark(#f6f7f9,#25272b);--accent:light-dark(#1a73e8,#8ab4f8);--accent-ink:light-dark(#fff,#0b1d3a);--g:#1e9e48;--y:#f2a900;--r:#e53935}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui, -apple-system, "Segoe UI", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;overflow-x:clip}
+.band{padding:clamp(20px,3vw,40px) max(4vw,16px)}
+.top{padding-bottom:12px}
+h1{font-size:clamp(30px,4vw,44px);line-height:1.05;margin:0 0 6px;font-weight:700;text-wrap:balance}
+h2{font-size:22px;line-height:1.2;margin:0 0 12px}
+.lede{margin:0;color:var(--muted);max-width:70ch}
+.wrap{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px;padding:0 max(4vw,16px);max-width:1400px}
+.fig{position:relative;aspect-ratio:5/3;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%;cursor:default}
+.panel{display:flex;flex-direction:column;gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px}
+.lightbtn{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;border:0;border-radius:12px;padding:10px 14px;background:var(--accent);color:var(--accent-ink);font:500 16px system-ui, -apple-system, "Segoe UI", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;cursor:pointer;text-align:left}
+.lightbtn:disabled{opacity:.7;cursor:wait}
+.lightbtn:focus-visible,button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tl{display:grid;gap:3px;background:#202124;padding:4px;border-radius:6px;flex:none}
+.tl i{width:12px;height:12px;border-radius:50%;background:#444;display:block}
+.tl i.on.r{background:#ff4b3e;box-shadow:0 0 8px #ff4b3e}.tl i.on.a{background:#ffb300;box-shadow:0 0 8px #ffb300}.tl i.on.g{background:#2bd560;box-shadow:0 0 8px #2bd560}
+.state{font-size:14px;color:var(--muted);margin:8px 2px 0}
+.row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 10px;margin-bottom:10px}
+.row:last-child{margin-bottom:0}
+.row label{font-size:14px}.row output{font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
+.row input{grid-column:1/-1;width:100%;height:28px;accent-color:var(--accent)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns button{flex:1;min-height:44px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:500 15px system-ui, -apple-system, "Segoe UI", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;cursor:pointer}
+.legend{display:grid;gap:6px;font-size:14px}
+.legend span{display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%;flex:none;border:1px solid rgba(0,0,0,.45)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+td,th{padding:5px 0;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:8px}
+.sub{display:block;color:var(--muted);font-size:13px}
+.notes{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:28px;max-width:1400px}
+.key td:first-child{font-weight:500;padding-right:12px;width:38%}
+.notes ol{margin:0;padding-left:20px}.notes li{margin-bottom:10px;max-width:70ch}
+.schem{width:100%;max-width:300px;height:auto;display:block;margin:4px 0 14px;color:var(--ink)}
+small.cap{color:var(--muted);font-size:13px}
+@media(max-width:900px){.wrap{grid-template-columns:minmax(0,1fr)}.notes{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<header class="band top">
+  <h1>Circuit City: electric current as traffic</h1>
+  <p class="lede">The road map is the circuit: a power depot (battery), a traffic light (switch), highways (wires) and three narrow streets (resistors), two of them in parallel. Change the light and the settings and watch the traffic.</p>
+</header>
+
+<main class="wrap">
+  <div class="fig" id="fig"><canvas id="cv" aria-label="Animated city map with traffic flowing round the circuit"></canvas></div>
+  <aside class="panel">
+    <div>
+      <button class="lightbtn" id="lightBtn" type="button">
+        <span class="tl" aria-hidden="true"><i class="r"></i><i class="a"></i><i class="g on"></i></span>
+        <span id="lightTxt">Turn the light red</span>
+      </button>
+      <p class="state" id="lightState">Light green: switch closed, traffic flowing.</p>
+    </div>
+
+    <div class="card">
+      <div class="row"><label for="cells">Power depot (battery)</label><output id="cellsOut">8 cells · 12.0 V</output><input id="cells" type="range" min="1" max="8" step="1" value="8"></div>
+      <div class="row"><label for="r1">Ohm Street, R₁</label><output id="r1Out">6 Ω</output><input id="r1" type="range" min="3" max="24" step="1" value="6"></div>
+      <div class="row"><label for="r2">Siemens Lane, R₂</label><output id="r2Out">12 Ω</output><input id="r2" type="range" min="3" max="24" step="1" value="12"></div>
+      <div class="row"><label for="r3">Joule Street, R₃</label><output id="r3Out">4 Ω</output><input id="r3" type="range" min="3" max="24" step="1" value="4"></div>
+      <div class="btns"><button id="pause" type="button">Pause</button><button id="reset" type="button">Reset</button></div>
+    </div>
+
+    <div class="card legend">
+      <span><i class="dot" style="background:var(--g)"></i>Moving freely: 30 km/h or more</span>
+      <span><i class="dot" style="background:var(--y)"></i>Slow: 3 to 30 km/h</span>
+      <span><i class="dot" style="background:var(--r)"></i>Stationary: under 3 km/h</span>
+    </div>
+
+    <div class="card">
+      <table id="read"><tbody></tbody></table>
+    </div>
+  </aside>
+</main>
+
+<section class="band notes">
+  <div>
+    <h2>Analogy key</h2>
+    <svg class="schem" viewBox="0 0 300 170" fill="none" stroke="currentColor" stroke-width="2" aria-label="Circuit diagram: battery, switch, R1 parallel with R2, in series with R3">
+      <path d="M10 20H128M172 20H290V110H250M190 110H150M10 20V40M10 52V70H50M10 70V140H50M110 70H150V140H110M150 110"/>
+      <path d="M2 38L14 50" /><circle cx="10" cy="20" r="2.5" fill="currentColor"/>
+      <path d="M130 8V32M142 13V27M154 8V32M166 13V27" stroke-width="3"/>
+      <rect x="50" y="62" width="60" height="16"/><rect x="50" y="132" width="60" height="16"/><rect x="190" y="102" width="60" height="16"/>
+      <g fill="currentColor" stroke="none" font-size="12" font-family="system-ui,Arial,sans-serif"><text x="72" y="56">R₁</text><text x="72" y="164">R₂</text><text x="212" y="96">R₃</text><text x="122" y="46">+</text><text x="168" y="46">−</text></g>
+    </svg>
+    <table class="key"><tbody>
+      <tr><td>Battery</td><td>Volta Power Depot: each car picks up energy here</td></tr>
+      <tr><td>Switch</td><td>Traffic light: green = closed, red = open</td></tr>
+      <tr><td>Connecting wires</td><td>Wide highways: almost no energy spent on them</td></tr>
+      <tr><td>Resistors</td><td>Narrow streets: Ohm Street, Siemens Lane, Joule Street</td></tr>
+      <tr><td>Charge carriers</td><td>Cars</td></tr>
+      <tr><td>Current, I</td><td>Cars passing a point per minute</td></tr>
+      <tr><td>Junction</td><td>Cars in = cars out (Kirchhoff's first law)</td></tr>
+      <tr><td>Potential difference</td><td>Energy each unit of traffic spends on a street</td></tr>
+    </tbody></table>
+  </div>
+  <div>
+    <h2>Where the analogy breaks</h2>
+    <ol>
+      <li><strong>Everything stops at once.</strong> Turn the light red and every car in the city stops together, not just the ones near the light. That is what a circuit does: the loop is already full of charge, so a break anywhere stops the drift everywhere almost instantly. Real traffic would queue behind the light while the far side of town emptied.</li>
+      <li><strong>Real charge doesn't bunch up.</strong> Here the cars crowd together and slow down in the narrow streets. In a metal the carrier density <em>n</em> is fixed by the material, so from <em>I = nAvq</em> a thinner conductor carrying the same current has a <em>higher</em> drift speed, not a lower one. A resistor's real effect is to reduce the current all the way round the loop, and the simulation does show that.</li>
+      <li><strong>The speeds are a mapping, not a measurement.</strong> 1 A is shown as 35 km/h on a highway and 12 km/h on a narrow street. Real drift speeds are around a tenth of a millimetre per second. A lamp lights at once because the electric field is set up round the circuit at close to the speed of light, not because the charges race round.</li>
+      <li><strong>The cars follow conventional current</strong>, leaving the + end of the depot. In a metal the electrons drift the other way.</li>
+      <li><strong>Energy, not cars, gets used up.</strong> Cars are never lost. Each one gains energy at the depot (the emf) and spends it on the narrow streets (the pd across each resistor), where it becomes heat. Because the highways are ideal wires, crossing them costs nothing.</li>
+    </ol>
+  </div>
+</section>
+
+<script>
+{
+const cv=document.getElementById('cv'), fig=document.getElementById('fig'), ctx=cv.getContext('2d');
+const off=document.createElement('canvas'), oc=off.getContext('2d');
+const W=1000,H=600,PXK=1.6,D_HW=18;
+const C={hw:35,st:12,bat:20};            // km/h per amp
+const q0=C.hw*PXK/D_HW;                    // cars per second per amp
+const D={hw:D_HW,st:C.st*PXK/q0,bat:C.bat*PXK/q0};
+const LANE={hw:[-6,0,6],bat:[-5,0,5],st:[0,0,0]};
+const DEF={cells:8,r1:6,r2:12,r3:4};
+const st={...DEF};
+const els={};
+for(const id of ['cells','r1','r2','r3']){els[id]=document.getElementById(id)}
+
+function mkPath(pieces){let s=0;const segs=[];
+  for(const [type,pts,tag] of pieces){for(let i=0;i<pts.length-1;i++){
+    const [x0,y0]=pts[i],[x1,y1]=pts[i+1],L=Math.hypot(x1-x0,y1-y0);
+    segs.push({type,tag,pts:[pts[i],pts[i+1]],x0,y0,dx:(x1-x0)/L,dy:(y1-y0)/L,s0:s,L});s+=L}}
+  return {segs,len:s}}
+const P={
+  M:mkPath([['hw',[[540,360],[640,360]]],['st',[[640,360],[840,360]],'r3'],['hw',[[840,360],[930,360],[930,80],[570,80]]],['bat',[[570,80],[430,80]]],['hw',[[430,80],[70,80],[70,250]]]]),
+  U:mkPath([['hw',[[70,250],[190,250]]],['st',[[190,250],[420,250]],'r1'],['hw',[[420,250],[540,250],[540,360]]]]),
+  L:mkPath([['hw',[[70,250],[70,470],[190,470]]],['st',[[190,470],[420,470]],'r2'],['hw',[[420,470],[540,470],[540,360]]]])
+};
+const segAt=(p,s)=>{for(const g of p.segs){if(s<g.s0+g.L)return g}return p.segs[p.segs.length-1]};
+
+// cars, placed at steady-state spacing
+const cars=[];let n=0;
+for(const key in P){for(const g of P[key].segs){const d=D[g.type];
+  for(let s=g.s0+d/2;s<g.s0+g.L;s+=d){const lane=n++%3;cars.push({p:key,s,lane,lat:LANE[g.type][lane]})}}}
+
+function solve(){const V=st.cells*1.5,Rp=st.r1*st.r2/(st.r1+st.r2),Rt=st.r3+Rp,I=V/Rt;return {V,Rp,Rt,I,f1:st.r2/(st.r1+st.r2)}}
+
+// palette
+const isDark=()=>{const t=document.documentElement.dataset.theme;return t?t==='dark':matchMedia('(prefers-color-scheme: dark)').matches};
+let pal;
+function setPal(){pal=isDark()?{
+  land:'#24272c',minor:'#33373d',bld:'#2c3035',park:'#1f3a2a',tree:'#2a4d37',parkTxt:'#7fc79a',water:'#17324d',waterTxt:'#7fb1e0',
+  hw:'#7a6a3c',hwO:'#4d4226',hwDash:'rgba(255,255,255,.25)',strt:'#4a4f57',strtO:'#2b2f34',bat:'#3a414c',depot:'#2f343b',depotO:'#505761',
+  txt:'#c4c7cc',halo:'#24272c',area:'#8a8f96',pill:'#2f3237',pillTxt:'#e8eaed',carO:'rgba(0,0,0,.8)'
+}:{
+  land:'#f1efe9',minor:'#ffffff',bld:'#e6e2da',park:'#cdeac0',tree:'#b4dca5',parkTxt:'#2e7d32',water:'#aadaff',waterTxt:'#3a73a8',
+  hw:'#fde293',hwO:'#e8b93e',hwDash:'rgba(255,255,255,.85)',strt:'#ffffff',strtO:'#c9c4ba',bat:'#d7dbe2',depot:'#e3e6ec',depotO:'#b9bec7',
+  txt:'#5f6368',halo:'#ffffff',area:'#80868b',pill:'#ffffff',pillTxt:'#202124',carO:'rgba(32,33,36,.75)'}}
+const COL={g:'#1e9e48',y:'#f2a900',r:'#e53935'};
+const col=v=>v<3?COL.r:v<30?COL.y:COL.g;
+
+let k=1,dpr=1,cw=0,chh=0;
+const world=c=>c.setTransform(k*dpr,0,0,k*dpr,0,0);
+function rr(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath()}
+function text(c,x,y,s,o={}){const {size=12,min=9,weight=400,color=pal.txt,halo=pal.halo,rot=0,italic=false,align='center'}=o;
+  c.save();c.setTransform(dpr,0,0,dpr,0,0);c.translate(x*k,y*k);c.rotate(rot);
+  c.font=`${italic?'italic ':''}${weight} ${Math.max(size*k,min)}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;c.textAlign=align;c.textBaseline='middle';
+  if(halo){c.lineWidth=3;c.lineJoin='round';c.strokeStyle=halo;c.strokeText(s,0,0)}c.fillStyle=color;c.fillText(s,0,0);c.restore()}
+function line(c,pts,w,color,dash){c.beginPath();c.moveTo(...pts[0]);for(const p of pts.slice(1))c.lineTo(...p);c.lineWidth=w;c.strokeStyle=color;c.lineCap='round';c.lineJoin='round';c.setLineDash(dash||[]);c.stroke();c.setLineDash([])}
+const stW=R=>Math.max(6,Math.min(15,16-0.45*R));
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function drawStatic(){
+  const c=oc;off.width=cv.width;off.height=cv.height;world(c);
+  c.fillStyle=pal.land;c.fillRect(0,0,W,H);
+  // buildings and minor streets
+  const R=rng(7);c.fillStyle=pal.bld;
+  for(let x=0;x<W;x+=50)for(let y=0;y<540;y+=50){const m=R()*3|0;for(let i=0;i<=m;i++){const bw=10+R()*24,bh=10+R()*24,bx=x+5+R()*(40-bw),by=y+5+R()*(40-bh);c.fillRect(bx,by,bw,bh)}}
+  for(let x=0;x<=W;x+=50)line(c,[[x,0],[x,540]],5,pal.minor);
+  for(let y=0;y<=540;y+=50)line(c,[[0,y],[W,y]],5,pal.minor);
+  // park
+  c.fillStyle=pal.park;rr(c,96,272,418,176,14);c.fill();
+  c.fillStyle=pal.tree;for(let i=0;i<70;i++){const x=110+R()*390,y=285+R()*150;if(Math.hypot((x-420)/52,(y-372)/32)<1)continue;c.beginPath();c.arc(x,y,3+R()*4,0,7);c.fill()}
+  c.fillStyle=pal.water;c.beginPath();c.ellipse(420,372,42,22,0,0,7);c.fill();
+  line(c,[[110,430],[200,400],[300,410],[360,380]],2,pal.minor,[4,4]);
+  // river
+  c.fillStyle=pal.water;c.beginPath();c.moveTo(0,552);
+  c.bezierCurveTo(200,530,320,575,520,552);c.bezierCurveTo(700,532,820,572,1000,548);c.lineTo(1000,600);c.lineTo(0,600);c.fill();
+  // depot
+  c.fillStyle=pal.depot;c.strokeStyle=pal.depotO;c.lineWidth=1.5;rr(c,415,46,170,68,10);c.fill();c.stroke();
+  // roads
+  const all=Object.values(P).flatMap(p=>p.segs);
+  for(const g of all)if(g.type==='st')line(c,g.pts,stW(st[g.tag])+3,pal.strtO);
+  for(const g of all)if(g.type==='st')line(c,g.pts,stW(st[g.tag]),pal.strt);
+  for(const g of all)if(g.type!=='st')line(c,g.pts,26,g.type==='bat'?pal.depotO:pal.hwO);
+  for(const g of all)if(g.type!=='st')line(c,g.pts,22,g.type==='bat'?pal.bat:pal.hw);
+  for(const g of all)if(g.type==='hw'){const nx=-g.dy,ny=g.dx;for(const o of[-3,3])line(c,g.pts.map(([x,y])=>[x+nx*o,y+ny*o]),1,pal.hwDash,[6,9])}
+  // junction nodes
+  for(const [x,y] of [[70,250],[540,360]]){c.fillStyle=pal.hwO;c.beginPath();c.arc(x,y,5,0,7);c.fill()}
+  // stop line at the light
+  line(c,[[60,178],[80,178]],2.5,'#ffffff');
+  // labels
+  text(c,500,30,'Volta Power Depot',{size:14,weight:700,color:isDark()?'#e8eaed':'#202124'});
+  text(c,500,130,'battery: cars gain energy here',{size:11,min:8});
+  text(c,432,96,'+',{size:16,weight:700,color:'#e53935'});text(c,568,96,'−',{size:16,weight:700});
+  text(c,250,100,'A1 Volta Highway',{size:12,weight:500});
+  text(c,760,100,'A1 Volta Highway',{size:12,weight:500});
+  text(c,953,220,'A3 Return Highway',{size:12,weight:500,rot:Math.PI/2});
+  text(c,28,360,'A2 Lightway',{size:12,weight:500,rot:-Math.PI/2});
+  text(c,305,272,'Ohm Street (R₁)',{size:12,weight:500});
+  text(c,305,492,'Siemens Lane (R₂)',{size:12,weight:500});
+  text(c,740,382,'Joule Street (R₃)',{size:12,weight:500});
+  text(c,96,272,'Junction',{size:11,min:8,align:'left'});
+  text(c,552,384,'Junction',{size:11,min:8,align:'left'});
+  text(c,280,355,'Parallel Park',{size:15,weight:500,color:pal.parkTxt,italic:true});
+  text(c,735,215,'Ampère Quarter',{size:14,color:pal.area});
+  text(c,735,465,'Faraday Heights',{size:14,color:pal.area});
+  text(c,770,578,'River Coulomb',{size:13,color:pal.waterTxt,italic:true,halo:null});
+}
+
+// traffic light state
+let light='green',tLight=0,paused=false,Ieff=solve().I,acc=0;
+const LIGHT_BOX=[22,128,74,210];
+function drawLight(c){world(c);const on={red:['r'],amber:['a'],redamber:['r','a'],green:['g']}[light];
+  c.fillStyle='#5f6368';c.fillRect(38,176,4,26);
+  c.fillStyle='#202124';rr(c,30,136,20,44,5);c.fill();
+  [['r',146,'#ff4b3e'],['a',158,'#ffb300'],['g',170,'#2bd560']].forEach(([id,y,hue])=>{const lit=on.includes(id);
+    c.beginPath();c.arc(40,y,4.6,0,7);c.fillStyle=lit?hue:'#3c3c3c';if(lit){c.shadowColor=hue;c.shadowBlur=10*k*dpr}c.fill();c.shadowBlur=0})}
+
+function pill(c,x,y,v){const s=`${v<0.5?0:Math.round(v)} km/h`,px=Math.max(11*k,10);
+  c.save();c.setTransform(dpr,0,0,dpr,0,0);c.font=`500 ${px}px system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif`;
+  const w=c.measureText(s).width+px*1.9,h=px*1.7,X=x*k-w/2,Y=y*k-h/2;
+  c.shadowColor='rgba(0,0,0,.28)';c.shadowBlur=4;c.shadowOffsetY=1;c.fillStyle=pal.pill;rr(c,X,Y,w,h,h/2);c.fill();c.shadowColor='transparent';
+  c.fillStyle=col(v);c.beginPath();c.arc(X+px*0.8,Y+h/2,px*0.36,0,7);c.fill();
+  c.fillStyle=pal.pillTxt;c.textBaseline='middle';c.fillText(s,X+px*1.4,Y+h/2+0.5);c.restore()}
+const LBL=[{p:'M',t:'hw',x:250,y:56},{p:'M',t:'hw',x:875,y:220},{p:'M',t:'hw',x:124,y:200},{p:'U',t:'hw',x:130,y:226},{p:'U',t:'st',x:305,y:226},{p:'L',t:'hw',x:130,y:446},{p:'L',t:'st',x:305,y:446},{p:'M',t:'st',x:740,y:336}];
+
+function currents(){const s=solve();return {M:Ieff,U:Ieff*s.f1,L:Ieff*(1-s.f1)}}
+
+function frame(dt){
+  if(tLight>0){tLight-=dt;if(tLight<=0){light=light==='amber'?'red':'green';syncLight()}}
+  const gate=(light==='green'||light==='amber')?1:0,target=solve().I*gate;
+  Ieff+=(target-Ieff)*Math.min(1,dt*2.5);if(target===0&&Ieff<2e-3)Ieff=0;
+  const cur=currents(),f1=solve().f1;
+  for(const c of cars){const p=P[c.p],g=segAt(p,c.s);
+    c.s+=C[g.type]*cur[c.p]*PXK*dt;
+    if(c.s>=p.len){c.s-=p.len;if(c.p==='M'){acc+=f1;if(acc>=1){acc-=1;c.p='U'}else c.p='L'}else c.p='M'}
+    const g2=segAt(P[c.p],c.s);c.lat+=(LANE[g2.type][c.lane]-c.lat)*Math.min(1,dt*3)}
+}
+function render(){
+  ctx.setTransform(1,0,0,1,0,0);ctx.drawImage(off,0,0);world(ctx);
+  const cur=currents(),r=2.8;
+  ctx.lineWidth=0.9;ctx.strokeStyle=pal.carO;
+  for(const c of cars){const g=segAt(P[c.p],c.s),d=c.s-g.s0,x=g.x0+g.dx*d-g.dy*c.lat,y=g.y0+g.dy*d+g.dx*c.lat;
+    ctx.fillStyle=col(C[g.type]*cur[c.p]);ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();ctx.stroke()}
+  drawLight(ctx);
+  for(const l of LBL)pill(ctx,l.x,l.y,C[l.t]*cur[l.p]);
+}
+
+// readouts
+const tb=document.querySelector('#read tbody');
+const f=(x,d=2)=>x.toFixed(d);
+function readouts(){const s=solve(),cur=currents(),cpm=x=>Math.round(x*q0*60);
+  const rows=[
+    ['Battery emf',`${f(s.V,1)} V`],
+    ['Total resistance',`${f(s.Rt,1)} Ω`,`R₃ + (R₁ ∥ R₂) = ${st.r3} + ${f(s.Rp,1)}`],
+    ['Current through the light and Joule Street',`${f(cur.M)} A`,`${cpm(cur.M)} cars/min`],
+    ['Ohm Street, I₁',`${f(cur.U)} A`,`${cpm(cur.U)} cars/min`],
+    ['Siemens Lane, I₂',`${f(cur.L)} A`,`${cpm(cur.L)} cars/min · I₁ + I₂ = ${f(cur.U+cur.L)} A`],
+    ['pd across R₁ and R₂',`${f(cur.U*st.r1)} V`,'same for both parallel streets'],
+    ['pd across R₃',`${f(cur.M*st.r3)} V`]];
+  tb.innerHTML=rows.map(([a,b,c])=>`<tr><td>${a}${c?`<span class="sub">${c}</span>`:''}</td><td class="n">${b}</td></tr>`).join('')}
+
+// controls
+const btn=document.getElementById('lightBtn'),lt=document.getElementById('lightTxt'),ls=document.getElementById('lightState');
+function syncLight(){const on={red:['r'],amber:['a'],redamber:['r','a'],green:['g']}[light];
+  btn.querySelectorAll('.tl i').forEach(i=>i.classList.toggle('on',on.some(o=>i.classList.contains(o))));
+  btn.disabled=light==='amber'||light==='redamber';
+  lt.textContent=light==='green'?'Turn the light red':light==='red'?'Turn the light green':'Changing…';
+  ls.textContent={green:'Light green: switch closed, traffic flowing.',amber:'Amber: about to open the switch.',red:'Light red: switch open, no current anywhere in the loop.',redamber:'Red and amber: about to close the switch.'}[light]}
+function toggle(){if(light==='green'){light='amber';tLight=1.2}else if(light==='red'){light='redamber';tLight=1}syncLight()}
+btn.addEventListener('click',toggle);
+cv.addEventListener('click',e=>{const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/k,y=(e.clientY-r.top)/k;
+  if(x>LIGHT_BOX[0]&&x<LIGHT_BOX[2]&&y>LIGHT_BOX[1]&&y<LIGHT_BOX[3])toggle()});
+cv.addEventListener('mousemove',e=>{const r=cv.getBoundingClientRect(),x=(e.clientX-r.left)/k,y=(e.clientY-r.top)/k;
+  cv.style.cursor=(x>LIGHT_BOX[0]&&x<LIGHT_BOX[2]&&y>LIGHT_BOX[1]&&y<LIGHT_BOX[3])?'pointer':'default'});
+function syncInputs(){document.getElementById('cellsOut').textContent=`${st.cells} cell${st.cells>1?'s':''} · ${f(st.cells*1.5,1)} V`;
+  for(const id of['r1','r2','r3'])document.getElementById(id+'Out').textContent=`${st[id]} Ω`}
+for(const id in els)els[id].addEventListener('input',()=>{st[id]=+els[id].value;syncInputs();if(id!=='cells')drawStatic();readouts()});
+const pb=document.getElementById('pause');
+pb.addEventListener('click',()=>{paused=!paused;pb.textContent=paused?'Play':'Pause'});
+document.getElementById('reset').addEventListener('click',()=>{Object.assign(st,DEF);for(const id in els)els[id].value=st[id];light='green';tLight=0;syncLight();syncInputs();drawStatic();readouts()});
+
+// sizing and theme
+function resize(){dpr=Math.min(window.devicePixelRatio||1,2);cw=fig.clientWidth;chh=fig.clientHeight;k=cw/W;
+  cv.width=Math.round(cw*dpr);cv.height=Math.round(chh*dpr);drawStatic();render()}
+const ro=new ResizeObserver(resize);ro.observe(fig);
+const reTheme=()=>{setPal();drawStatic()};
+const mo=new MutationObserver(reTheme);mo.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',reTheme);
+setPal();syncInputs();syncLight();
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>drawStatic());
+
+let last=performance.now(),acc2=0;
+function loop(t){const dt=Math.min(0.05,(t-last)/1000);last=t;
+  if(!paused)frame(dt);render();acc2+=dt;if(acc2>0.2){acc2=0;readouts()}requestAnimationFrame(loop)}
+readouts();requestAnimationFrame(loop);
+}
+</script>
+</body>
+</html>
