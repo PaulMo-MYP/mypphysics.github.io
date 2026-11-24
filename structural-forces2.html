@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forces in a Suspended Load</title>
+<style>
+  :root{
+    --bg:#f3f0e8; --ink:#1f2633; --muted:#6b7280; --panel:#ffffff;
+    --accentA:#c2410c; --accentB:#1d4ed8; --line:#d8d2c4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:16px}
+  h1{font-size:1.25rem;font-weight:650;margin:4px 0 12px;letter-spacing:.01em}
+  .stage{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+  .controls{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin-top:12px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .label{font-size:.78rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+  .val{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:2rem;font-weight:600;line-height:1.1}
+  .val small{font-size:1rem;font-weight:500;color:var(--muted);margin-left:4px}
+  .A .val{color:var(--accentA)} .B .val{color:var(--accentB)}
+  input[type=range]{width:100%;accent-color:var(--ink);margin:10px 0 2px}
+  .carriage{cursor:grab}
+  .carriage:active{cursor:grabbing}
+  .carriage:focus{outline:none}
+  .carriage:focus .cbody{stroke:#111;stroke-width:2.5}
+  @media (max-width:640px){
+    .controls{grid-template-columns:1fr 1fr}
+    .val{font-size:1.6rem}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Forces in a Suspended Load</h1>
+  <div class="stage">
+    <svg id="svg" viewBox="0 0 1000 520" aria-label="Load suspended from a ring held by two newton meters">
+      <defs>
+        <pattern id="hatch" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <rect width="12" height="12" fill="#4b5563"/>
+          <line x1="0" y1="0" x2="0" y2="12" stroke="#374151" stroke-width="6"/>
+        </pattern>
+        <linearGradient id="metal" x1="0" x2="1">
+          <stop offset="0" stop-color="#9ca3af"/><stop offset=".5" stop-color="#e5e7eb"/><stop offset="1" stop-color="#9ca3af"/>
+        </linearGradient>
+        <linearGradient id="block" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#6b7280"/><stop offset="1" stop-color="#374151"/>
+        </linearGradient>
+      </defs>
+      <!-- ceiling -->
+      <rect x="0" y="0" width="1000" height="34" fill="url(#hatch)"/>
+      <rect x="0" y="34" width="1000" height="10" fill="#9ca3af"/>
+      <rect x="0" y="43" width="1000" height="2" fill="#6b7280"/>
+      <g id="scene"></g>
+    </svg>
+  </div>
+
+  <div class="controls">
+    <div class="card A">
+      <div class="label">Newton meter A</div>
+      <div class="val"><span id="fa">0.0</span><small>N</small></div>
+    </div>
+    <div class="card B">
+      <div class="label">Newton meter B</div>
+      <div class="val"><span id="fb">0.0</span><small>N</small></div>
+    </div>
+    <div class="card sep">
+      <div class="label">Hook separation</div>
+      <div class="val"><span id="sv">28.0</span><small>cm</small></div>
+    </div>
+    <div class="card mass">
+      <div class="label">Load mass</div>
+      <div class="val"><span id="mv">2.0</span><small>kg</small></div>
+      <input id="mass" type="range" min="0.1" max="5" step="0.1" value="2" aria-label="Load mass in kilograms">
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var NS = "http://www.w3.org/2000/svg";
+  var svg = document.getElementById("svg");
+  var scene = document.getElementById("scene");
+  var massInput = document.getElementById("mass");
+  var svEl = document.getElementById("sv");
+  var faEl = document.getElementById("fa"), fbEl = document.getElementById("fb"), mvEl = document.getElementById("mv");
+
+  // geometry (SVG units)
+  var G = 9.81;
+  var UNITS_PER_CM = 10;   // drawing scale: 10 SVG units = 1 cm
+  var HOOK_Y = 58;          // attachment point below carriage
+  var L0 = 280;             // unloaded length hook -> ring centre
+  var PX_PER_N = 1.4;       // spring extension per newton (scale: 0–100 N over 140 units)
+  var SCALE_MAX = 100;
+  var X_MIN = 50, X_MAX = 950;
+  var MIN_GAP = 52;
+  var MAX_HALF = L0 * Math.sin(72 * Math.PI / 180);
+
+  var state = { xa: 360, xb: 640, m: parseFloat(massInput.value) };
+
+  function el(name, attrs, parent){
+    var e = document.createElementNS(NS, name);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  // ---------- build static-ish elements ----------
+  var loadGroup = el("g", {}, scene);
+  var loadCord = el("line", {stroke:"#1f2633","stroke-width":2}, loadGroup);
+  var loadHook = el("path", {fill:"none",stroke:"#4b5563","stroke-width":3,"stroke-linecap":"round"}, loadGroup);
+  var blockRect = el("rect", {fill:"url(#block)",stroke:"#1f2633","stroke-width":1.5,rx:4}, loadGroup);
+  var blockText = el("text", {fill:"#f9fafb","font-size":15,"font-weight":600,"text-anchor":"middle",
+    "font-family":"ui-monospace,Menlo,Consolas,monospace"}, loadGroup);
+
+  function makeMeter(color){
+    var g = el("g", {}, scene);
+    var inner = el("g", {}, g);
+    // eye
+    el("circle", {cx:0, cy:6, r:6, fill:"none", stroke:"#4b5563", "stroke-width":3}, inner);
+    // body
+    el("rect", {x:-24, y:12, width:48, height:196, rx:7, fill:"#fbf7ec", stroke:color, "stroke-width":2.5}, inner);
+    el("rect", {x:-24, y:12, width:48, height:14, rx:7, fill:color}, inner);
+    // window
+    el("rect", {x:-8, y:30, width:16, height:172, rx:3, fill:"#ffffff", stroke:"#9ca3af", "stroke-width":1}, inner);
+    // ticks + labels
+    for (var n = 0; n <= SCALE_MAX; n += 5){
+      var y = 36 + n * PX_PER_N;
+      var major = n % 20 === 0;
+      el("line", {x1:8, y1:y, x2: major ? 17 : 13, y2:y, stroke:"#1f2633", "stroke-width": major ? 1.4 : 0.8}, inner);
+      if (major){
+        var t = el("text", {x:-10, y:y + 3, "font-size":8.5, fill:"#1f2633", "text-anchor":"end",
+          "font-family":"ui-monospace,Menlo,Consolas,monospace"}, inner);
+        t.textContent = n;
+      }
+    }
+    var spring = el("polyline", {fill:"none", stroke:"#6b7280", "stroke-width":1.4}, inner);
+    var rod = el("rect", {x:-2.5, width:5, fill:"url(#metal)", stroke:"#6b7280", "stroke-width":0.8}, inner);
+    var pointer = el("rect", {x:-8, width:16, height:3, fill:"#dc2626"}, inner);
+    var hook = el("path", {fill:"none", stroke:"#4b5563", "stroke-width":3, "stroke-linecap":"round"}, inner);
+    var cord = el("line", {x1:0, x2:0, stroke:"#1f2633", "stroke-width":2}, inner);
+    return {g:g, inner:inner, spring:spring, rod:rod, pointer:pointer, hook:hook, cord:cord};
+  }
+
+  var meterA = makeMeter("#c2410c");
+  var meterB = makeMeter("#1d4ed8");
+
+  var ring = el("circle", {r:12, fill:"none", stroke:"#374151", "stroke-width":4}, scene);
+
+  function makeCarriage(color, label){
+    var g = el("g", {class:"carriage", tabindex:0, role:"slider", "aria-label":"Fixing point " + label}, svg);
+    el("rect", {x:-30, y:26, width:60, height:28, fill:"transparent"}, g);
+    el("rect", {class:"cbody", x:-24, y:30, width:48, height:20, rx:4, fill:color, stroke:"#111827", "stroke-width":1.2}, g);
+    el("path", {d:"M0 50 L0 56", stroke:"#4b5563", "stroke-width":3, "stroke-linecap":"round"}, g);
+    var t = el("text", {x:0, y:45, "text-anchor":"middle", "font-size":14, "font-weight":700, fill:"#ffffff", "pointer-events":"none"}, g);
+    t.textContent = label;
+    return g;
+  }
+  var carA = makeCarriage("#c2410c", "A");
+  var carB = makeCarriage("#1d4ed8", "B");
+
+  // ---------- physics ----------
+  // Identical linear springs from hooks at equal height; ring rests on the perpendicular bisector.
+  // Solve L - L0 = PX_PER_N * T with T = W L / (2h), h = sqrt(L^2 - d^2).
+  function solve(d, W){
+    if (W <= 0) return {L: Math.max(L0, d), T: 0};
+    var f = function(L){ var h = Math.sqrt(L*L - d*d); return L - L0 - PX_PER_N * W * L / (2*h); };
+    var lo = Math.max(L0, d + 1e-6), hi = lo + 10;
+    while (f(hi) < 0) hi = lo + (hi - lo) * 2;
+    for (var i = 0; i < 80; i++){
+      var mid = (lo + hi) / 2;
+      if (f(mid) < 0) lo = mid; else hi = mid;
+    }
+    var L = (lo + hi) / 2, h = Math.sqrt(L*L - d*d);
+    return {L: L, T: W * L / (2*h)};
+  }
+
+  function drawMeter(m, hx, hy, rx, ry, T){
+    var dx = rx - hx, dy = ry - hy, L = Math.hypot(dx, dy);
+    var phi = Math.atan2(-dx, dy) * 180 / Math.PI;
+    m.g.setAttribute("transform", "translate(" + hx + "," + hy + ") rotate(" + phi + ")");
+    var ext = T * PX_PER_N;
+    var visExt = Math.min(ext, SCALE_MAX * PX_PER_N + 4);
+    var py = 36 + visExt;
+    // spring zigzag from top of window to pointer
+    var top = 30, coils = 14, pts = [];
+    pts.push("0," + top);
+    for (var i = 1; i <= coils * 2; i++){
+      var y = top + (py - top) * i / (coils * 2 + 1);
+      pts.push(((i % 2) ? -6 : 6) + "," + y.toFixed(2));
+    }
+    pts.push("0," + py);
+    m.spring.setAttribute("points", pts.join(" "));
+    m.pointer.setAttribute("y", py - 1.5);
+    var rodTop = py, rodBot = 236 + ext;
+    m.rod.setAttribute("x", -2.5);
+    m.rod.setAttribute("y", rodTop);
+    m.rod.setAttribute("height", Math.max(0, rodBot - rodTop));
+    m.hook.setAttribute("d", "M0 " + rodBot + " L0 " + (rodBot + 6) + " q 0 8 -6 8 q -6 0 -6 -6");
+    m.cord.setAttribute("y1", rodBot + 6);
+    m.cord.setAttribute("y2", L - 12);
+  }
+
+  function render(){
+    var W = state.m * G;
+    var d = (state.xb - state.xa) / 2;
+    var sol = solve(d, W);
+    var cx = (state.xa + state.xb) / 2;
+    var h = Math.sqrt(Math.max(0, sol.L * sol.L - d * d));
+    var ry = HOOK_Y + h;
+
+    drawMeter(meterA, state.xa, HOOK_Y, cx, ry, sol.T);
+    drawMeter(meterB, state.xb, HOOK_Y, cx, ry, sol.T);
+    ring.setAttribute("cx", cx); ring.setAttribute("cy", ry);
+
+    carA.setAttribute("transform", "translate(" + state.xa + ",0)");
+    carB.setAttribute("transform", "translate(" + state.xb + ",0)");
+    carA.setAttribute("aria-valuenow", Math.round(state.xa));
+    carB.setAttribute("aria-valuenow", Math.round(state.xb));
+
+    // load
+    var s = 34 + 40 * Math.sqrt(state.m / 5);
+    var hookTop = ry + 12;
+    loadHook.setAttribute("d", "M" + cx + " " + (hookTop + 10) + " q 0 -10 -7 -10 q -7 0 -7 7");
+    loadHook.setAttribute("transform", "translate(7,-10)");
+    loadCord.setAttribute("x1", cx); loadCord.setAttribute("y1", hookTop);
+    loadCord.setAttribute("x2", cx); loadCord.setAttribute("y2", hookTop + 46);
+    blockRect.setAttribute("x", cx - s * 0.6); blockRect.setAttribute("y", hookTop + 46);
+    blockRect.setAttribute("width", s * 1.2); blockRect.setAttribute("height", s);
+    blockText.setAttribute("x", cx); blockText.setAttribute("y", hookTop + 46 + s / 2 + 5);
+    blockText.textContent = state.m.toFixed(1) + " kg";
+
+    faEl.textContent = sol.T.toFixed(1);
+    fbEl.textContent = sol.T.toFixed(1);
+    mvEl.textContent = state.m.toFixed(1);
+    svEl.textContent = ((state.xb - state.xa) / UNITS_PER_CM).toFixed(1);
+  }
+
+  // ---------- interaction ----------
+  function clampA(x){ return Math.min(Math.max(x, X_MIN, state.xb - 2 * MAX_HALF), state.xb - MIN_GAP); }
+  function clampB(x){ return Math.max(Math.min(x, X_MAX, state.xa + 2 * MAX_HALF), state.xa + MIN_GAP); }
+
+  function svgX(evt){
+    var pt = svg.createSVGPoint();
+    pt.x = evt.clientX; pt.y = evt.clientY;
+    return pt.matrixTransform(svg.getScreenCTM().inverse()).x;
+  }
+
+  function attachDrag(car, which){
+    var dragging = false, offset = 0;
+    car.addEventListener("pointerdown", function(e){
+      dragging = true;
+      offset = svgX(e) - state[which];
+      car.setPointerCapture(e.pointerId);
+      car.focus({preventScroll:true});
+      e.preventDefault();
+    });
+    car.addEventListener("pointermove", function(e){
+      if (!dragging) return;
+      var x = svgX(e) - offset;
+      state[which] = which === "xa" ? clampA(x) : clampB(x);
+      render();
+    });
+    var end = function(){ dragging = false; };
+    car.addEventListener("pointerup", end);
+    car.addEventListener("pointercancel", end);
+    car.addEventListener("keydown", function(e){
+      var step = e.shiftKey ? 20 : 4, dx = 0;
+      if (e.key === "ArrowLeft") dx = -step;
+      else if (e.key === "ArrowRight") dx = step;
+      else return;
+      e.preventDefault();
+      var x = state[which] + dx;
+      state[which] = which === "xa" ? clampA(x) : clampB(x);
+      render();
+    });
+  }
+  attachDrag(carA, "xa");
+  attachDrag(carB, "xb");
+
+  massInput.addEventListener("input", function(){
+    state.m = parseFloat(massInput.value);
+    render();
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>
